@@ -61,12 +61,20 @@ def on_scan_bluetooth():
 @sio.on('request-connect-wifi')
 def on_connect_wifi(data):
     # Use nmcli to connect
-    sio.emit("status-update", {"type": "success", "message": f"Connected to {data['ssid']}"})
+    try:
+        # Simulate connection
+        sio.emit("connection-status", {"type": "wifi", "status": "success", "message": f"Connected to {data['ssid']}"})
+    except Exception as e:
+        sio.emit("connection-status", {"type": "wifi", "status": "error", "message": f"Failed to connect: {str(e)}"})
 
 @sio.on('request-pair-bluetooth')
 def on_pair_bluetooth(data):
     # Use bluetoothctl to pair
-    sio.emit("status-update", {"type": "success", "message": f"Paired with {data['device']}"})
+    try:
+        # Simulate pairing
+        sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {data['device']}"})
+    except Exception as e:
+        sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": f"Failed to pair: {str(e)}"})
 
 @sio.on('request-reboot')
 def on_reboot():

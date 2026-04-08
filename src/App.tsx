@@ -12,6 +12,8 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast, Toaster } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import DisplaySettings from '@/components/DisplaySettings';
 
 const socket = io(); 
 
@@ -22,7 +24,14 @@ export default function App() {
   const [newFeed, setNewFeed] = useState('');
   const [status, setStatus] = useState('Disconnected');
   const [systemStatus, setSystemStatus] = useState({ network: 'Unknown', bluetooth: 'Unknown' });
-  const [settings, setSettings] = useState({ brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll' });
+  const [settings, setSettings] = useState({ 
+    brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll',
+    hardware: { rows: 32, cols: 64, chain_length: 2, parallel: 1, brightness: 90, hardware_mapping: "adafruit-hat-pwm", scan_mode: 0, pwm_bits: 9, pwm_dither_bits: 1, pwm_lsb_nanoseconds: 130, disable_hardware_pulsing: false, inverse_colors: false, show_refresh_rate: false, limit_refresh_rate_hz: 100 },
+    runtime: { gpio_slowdown: 4 },
+    display_durations: { calendar: 30, hockey_scoreboard: 45, weather: 20, stocks: 25 },
+    use_short_date_format: true,
+    dynamic_duration: { max_duration_seconds: 60 }
+  });
 
   const [presets, setPresets] = useState<string[]>([]);
   const [presetName, setPresetName] = useState('');
@@ -32,6 +41,9 @@ export default function App() {
   const [selectedWifi, setSelectedWifi] = useState('');
   const [selectedBluetooth, setSelectedBluetooth] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
+  const [wifiStatus, setWifiStatus] = useState<'idle' | 'connecting' | 'success' | 'error'>('idle');
+  const [btStatus, setBtStatus] = useState<'idle' | 'pairing' | 'success' | 'error'>('idle');
+  const [connectionMessage, setConnectionMessage] = useState('');
 
   useEffect(() => {
     socket.on('connect', () => setStatus('Connected'));
@@ -43,6 +55,15 @@ export default function App() {
     socket.on('health-update', (data) => setHealth(data));
     socket.on('wifi-scan-results', (data) => setWifiNetworks(data));
     socket.on('bluetooth-scan-results', (data) => setBluetoothDevices(data));
+    socket.on('connection-status', (data) => {
+        if (data.type === 'wifi') {
+            setWifiStatus(data.status);
+            setConnectionMessage(data.message);
+        } else if (data.type === 'bluetooth') {
+            setBtStatus(data.status);
+            setConnectionMessage(data.message);
+        }
+    });
     socket.on('status-update', (data) => {
         if(data.type === 'success') toast.success(data.message);
         else toast.info(data.message);
@@ -70,10 +91,6 @@ export default function App() {
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) { socket.emit('send-message', message); setMessage(''); }
-  };
-
-  const clearMatrix = () => {
-    socket.emit('send-message', '');
   };
 
   return (
@@ -122,7 +139,12 @@ export default function App() {
                   </SelectContent>
                 </Select>
                 <Input type="password" placeholder="Password" value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} />
-                <Button size="sm" className="w-full" onClick={() => socket.emit('connect-wifi', { ssid: selectedWifi, password: wifiPassword })}>Connect</Button>
+                <Button size="sm" className="w-full" onClick={() => { setWifiStatus('connecting'); socket.emit('connect-wifi', { ssid: selectedWifi, password: wifiPassword }); }}>Connect</Button>
+                {wifiStatus !== 'idle' && (
+                    <div className={`text-sm p-2 rounded ${wifiStatus === 'success' ? 'bg-green-900 text-green-100' : wifiStatus === 'error' ? 'bg-destructive text-destructive-foreground' : 'bg-muted'}`}>
+                        {wifiStatus === 'connecting' ? 'Connecting...' : connectionMessage}
+                    </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -136,7 +158,12 @@ export default function App() {
                     {bluetoothDevices.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button size="sm" className="w-full" onClick={() => socket.emit('pair-bluetooth', { device: selectedBluetooth })}>Pair</Button>
+                <Button size="sm" className="w-full" onClick={() => { setBtStatus('pairing'); socket.emit('pair-bluetooth', { device: selectedBluetooth }); }}>Pair</Button>
+                {btStatus !== 'idle' && (
+                    <div className={`text-sm p-2 rounded ${btStatus === 'success' ? 'bg-green-900 text-green-100' : btStatus === 'error' ? 'bg-destructive text-destructive-foreground' : 'bg-muted'}`}>
+                        {btStatus === 'pairing' ? 'Pairing...' : connectionMessage}
+                    </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center text-sm pt-4 border-t">
@@ -167,26 +194,37 @@ export default function App() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Live Controls</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <Label>Brightness ({settings.brightness}%)</Label>
-              <Slider value={[settings.brightness]} min={0} max={100} onValueChange={(v) => sendSettings({...settings, brightness: v[0]})} />
-              <Label>Color</Label>
-              <Input type="color" value={settings.color} onChange={(e) => sendSettings({...settings, color: e.target.value})} className="h-10" />
-              <Label>Mode</Label>
-              <Select value={settings.mode} onValueChange={(v) => sendSettings({...settings, mode: v})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scroll">Scroll Left</SelectItem>
-                  <SelectItem value="static">Static</SelectItem>
-                  <SelectItem value="flash">Flash</SelectItem>
-                </SelectContent>
-              </Select>
-              <form onSubmit={sendMessage} className="flex gap-2 mt-4">
-                <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" />
-                <Button type="submit">Send</Button>
-                <Button variant="destructive" onClick={() => socket.emit('send-message', '')}>Clear</Button>
-              </form>
+            <CardHeader><CardTitle>Controls</CardTitle></CardHeader>
+            <CardContent>
+              <Tabs defaultValue="live">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="live">Live Controls</TabsTrigger>
+                  <TabsTrigger value="display">Display Settings</TabsTrigger>
+                </TabsList>
+                <TabsContent value="live" className="space-y-4">
+                  <Label>Brightness ({settings.brightness}%)</Label>
+                  <Slider value={[settings.brightness]} min={0} max={100} onValueChange={(v) => sendSettings({...settings, brightness: v[0]})} />
+                  <Label>Color</Label>
+                  <Input type="color" value={settings.color} onChange={(e) => sendSettings({...settings, color: e.target.value})} className="h-10" />
+                  <Label>Mode</Label>
+                  <Select value={settings.mode} onValueChange={(v) => sendSettings({...settings, mode: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scroll">Scroll Left</SelectItem>
+                      <SelectItem value="static">Static</SelectItem>
+                      <SelectItem value="flash">Flash</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <form onSubmit={sendMessage} className="flex gap-2 mt-4">
+                    <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" />
+                    <Button type="submit">Send</Button>
+                    <Button variant="destructive" onClick={() => socket.emit('send-message', '')}>Clear</Button>
+                  </form>
+                </TabsContent>
+                <TabsContent value="display">
+                  <DisplaySettings settings={settings} onSave={sendSettings} />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>

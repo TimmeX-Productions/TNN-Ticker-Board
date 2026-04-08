@@ -69,11 +69,11 @@ async function startServer() {
 
     socket.on("connect-wifi", (data) => {
       io.emit("request-connect-wifi", data);
-      socket.emit("status-update", { type: "info", message: `Connecting to ${data.ssid}...` });
+      io.emit("connection-status", { type: 'wifi', status: 'connecting', message: `Connecting to ${data.ssid}...` });
     });
     socket.on("pair-bluetooth", (data) => {
       io.emit("request-pair-bluetooth", data);
-      socket.emit("status-update", { type: "info", message: `Pairing with ${data.device}...` });
+      io.emit("connection-status", { type: 'bluetooth', status: 'pairing', message: `Pairing with ${data.device}...` });
     });
 
     // Presets
