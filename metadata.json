@@ -1,0 +1,5 @@
+{
+  "name": "LED Matrix Ticker Controller",
+  "description": "A web-based dashboard to control a Raspberry Pi powered LED matrix news ticker.",
+  "requestFramePermissions": []
+}
