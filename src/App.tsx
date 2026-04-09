@@ -261,10 +261,10 @@ export default function App() {
                       <div className="space-y-4">
                         <div className="flex justify-between">
                           <Label className="text-zinc-300">Brightness</Label>
-                          <span className="text-zinc-500 text-sm">{settings.brightness}%</span>
+                          <span className="text-zinc-500 text-sm">{settings.brightness ?? 100}%</span>
                         </div>
                         <Slider 
-                          value={[settings.brightness]} 
+                          value={[settings.brightness ?? 100]} 
                           min={0} max={100} 
                           onValueChange={(v) => sendSettings({...settings, brightness: v[0]})}
                           className="[&_[role=slider]]:bg-orange-500"
@@ -273,10 +273,10 @@ export default function App() {
                       <div className="space-y-4">
                         <div className="flex justify-between">
                           <Label className="text-zinc-300">Scroll Speed</Label>
-                          <span className="text-zinc-500 text-sm">{settings.speed}</span>
+                          <span className="text-zinc-500 text-sm">{settings.speed ?? 50}</span>
                         </div>
                         <Slider 
-                          value={[settings.speed]} 
+                          value={[settings.speed ?? 50]} 
                           min={0} max={100} 
                           onValueChange={(v) => sendSettings({...settings, speed: v[0]})}
                           className="[&_[role=slider]]:bg-orange-500"

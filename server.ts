@@ -118,6 +118,12 @@ async function startServer() {
       io.emit("bluetooth-scan-results", results);
       io.emit("status-update", { type: "success", message: "Bluetooth scan complete" });
     });
+    socket.on("system-status", (status) => {
+      io.emit("system-status", status);
+    });
+    socket.on("connection-status", (status) => {
+      io.emit("connection-status", status);
+    });
     
     socket.on("send-message", (message) => {
       io.emit("display-message", message);
