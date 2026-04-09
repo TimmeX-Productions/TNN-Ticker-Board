@@ -17,11 +17,19 @@ let appData = {
   presets: {} as Record<string, any>,
   settings: {
     brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll',
+    font: '7x13.bdf', image_url: '',
     hardware: { rows: 32, cols: 64, chain_length: 2, parallel: 1, brightness: 90, hardware_mapping: "adafruit-hat-pwm", scan_mode: 0, pwm_bits: 9, pwm_dither_bits: 1, pwm_lsb_nanoseconds: 130, disable_hardware_pulsing: false, inverse_colors: false, show_refresh_rate: false, limit_refresh_rate_hz: 100 },
     runtime: { gpio_slowdown: 4 },
     display_durations: { calendar: 30, hockey_scoreboard: 45, weather: 20, stocks: 25 },
     use_short_date_format: true,
-    dynamic_duration: { max_duration_seconds: 60 }
+    dynamic_duration: { max_duration_seconds: 60 },
+    plugins: {
+      time: { enabled: true, format: '12h' },
+      weather: { enabled: false, location: '', api_key: '' },
+      sports: { enabled: false, teams: '' },
+      stocks: { enabled: false, symbols: '' },
+      entertainment: { enabled: false, mode: 'game_of_life' }
+    }
   }
 };
 
@@ -30,6 +38,15 @@ if (fs.existsSync(DATA_FILE)) {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
     appData = { ...appData, ...JSON.parse(raw) };
+    if (!appData.settings.plugins) {
+      appData.settings.plugins = {
+        time: { enabled: true, format: '12h' },
+        weather: { enabled: false, location: '', api_key: '' },
+        sports: { enabled: false, teams: '' },
+        stocks: { enabled: false, symbols: '' },
+        entertainment: { enabled: false, mode: 'game_of_life' }
+      };
+    }
   } catch (e) {
     console.error("Failed to load data.json", e);
   }
@@ -120,6 +137,9 @@ async function startServer() {
     socket.on("pair-bluetooth", (data) => {
       io.emit("request-pair-bluetooth", data);
       io.emit("connection-status", { type: 'bluetooth', status: 'pairing', message: `Pairing with ${data.device}...` });
+    });
+    socket.on("toggle-bt-config", (enabled) => {
+      io.emit("toggle-bt-config", enabled);
     });
 
     // Presets
