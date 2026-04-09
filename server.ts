@@ -47,6 +47,9 @@ if (fs.existsSync(DATA_FILE)) {
         entertainment: { enabled: false, mode: 'game_of_life' }
       };
     }
+    if (!appData.settings.plugins.module_order) {
+      appData.settings.plugins.module_order = ['time', 'weather', 'sports', 'stocks', 'news'];
+    }
   } catch (e) {
     console.error("Failed to load data.json", e);
   }
@@ -56,12 +59,94 @@ function saveData() {
   fs.writeFileSync(DATA_FILE, JSON.stringify(appData, null, 2));
 }
 
+let rotationActive = false;
+let rotationIndex = -1;
+let rotationTimer: NodeJS.Timeout | null = null;
+let latestNews = "";
+
+async function getWeatherData(location: string, apiKey: string) {
+    if (!location || !apiKey) return "Weather: Not Configured";
+    try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=imperial`);
+        const data = await res.json() as any;
+        if (data.weather) {
+            return `Weather in ${data.name}: ${data.weather[0].description}, ${Math.round(data.main.temp)}°F`;
+        }
+        return "Weather: Invalid API Key or Location";
+    } catch (e) {
+        return "Weather: Error fetching data";
+    }
+}
+
+async function getStockData(symbols: string) {
+    if (!symbols) return "Stocks: Not Configured";
+    const syms = symbols.split(',').map(s => s.trim());
+    let results = [];
+    for (const sym of syms) {
+        try {
+            const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}`);
+            const data = await res.json() as any;
+            const price = data.chart.result[0].meta.regularMarketPrice;
+            results.push(`${sym}: $${price.toFixed(2)}`);
+        } catch (e) {
+            results.push(`${sym}: Error`);
+        }
+    }
+    return results.join(' | ');
+}
+
 async function startServer() {
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, { cors: { origin: "*" } });
 
   const PORT = 3000;
+
+  async function processRotation() {
+      if (!rotationActive) return;
+      
+      const plugins = appData.settings.plugins as any;
+      const order = plugins.module_order || ['time', 'weather', 'sports', 'stocks', 'news'];
+      
+      const enabled = order.filter((m: string) => {
+          if (m === 'news') return appData.feeds.length > 0;
+          return plugins[m]?.enabled;
+      });
+
+      if (enabled.length === 0) {
+          rotationTimer = setTimeout(processRotation, 5000);
+          return;
+      }
+
+      rotationIndex = (rotationIndex + 1) % enabled.length;
+      const currentModule = enabled[rotationIndex];
+      let message = "";
+
+      try {
+          if (currentModule === 'time') {
+              const format = plugins.time?.format === '24h' ? 'en-GB' : 'en-US';
+              message = new Date().toLocaleTimeString(format);
+          } else if (currentModule === 'weather') {
+              message = await getWeatherData(plugins.weather?.location, plugins.weather?.api_key);
+          } else if (currentModule === 'stocks') {
+              message = await getStockData(plugins.stocks?.symbols);
+          } else if (currentModule === 'news') {
+              message = latestNews || "News: No recent updates";
+          } else if (currentModule === 'sports') {
+              message = `Sports: ${plugins.sports?.teams || 'Not Configured'}`; 
+          } else if (currentModule === 'entertainment') {
+              message = "Enjoy the Matrix!";
+          }
+      } catch (e) {
+          message = `Error loading ${currentModule}`;
+      }
+
+      if (message) {
+          io.emit("display-message", message);
+      }
+      
+      rotationTimer = setTimeout(processRotation, 15000); // 15 seconds per module
+  }
 
   // Fetch RSS periodically
   async function fetchNews() {
@@ -70,6 +155,7 @@ async function startServer() {
         const feed = await parser.parseURL(feedUrl);
         const newsItem = feed.items[0];
         if (newsItem) {
+          latestNews = `${newsItem.title}`;
           io.emit("news-update", { title: newsItem.title, image: newsItem.enclosure?.url || "" });
         }
       } catch (error) {
@@ -128,7 +214,24 @@ async function startServer() {
       io.emit("status-update", { type: "error", message: `Pi Error: ${err}` });
     });
     
+    socket.on("start-rotation", () => {
+      rotationActive = true;
+      rotationIndex = -1;
+      if (rotationTimer) clearTimeout(rotationTimer);
+      processRotation();
+      io.emit("rotation-status", true);
+    });
+
+    socket.on("stop-rotation", () => {
+      rotationActive = false;
+      if (rotationTimer) clearTimeout(rotationTimer);
+      io.emit("rotation-status", false);
+    });
+
     socket.on("send-message", (message) => {
+      rotationActive = false;
+      if (rotationTimer) clearTimeout(rotationTimer);
+      io.emit("rotation-status", false);
       io.emit("display-message", message);
       socket.emit("status-update", { type: "success", message: "Message sent to matrix" });
     });

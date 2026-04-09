@@ -302,12 +302,12 @@ def on_scan_bluetooth():
     devices = []
     try:
         try:
-            subprocess.Popen(["bluetoothctl", "scan", "on"])
+            subprocess.Popen(["sudo", "bluetoothctl", "scan", "on"])
             time.sleep(4)
-            subprocess.Popen(["bluetoothctl", "scan", "off"])
+            subprocess.Popen(["sudo", "bluetoothctl", "scan", "off"])
         except:
             pass
-        results = subprocess.check_output(["bluetoothctl", "devices"]).decode().split('\n')
+        results = subprocess.check_output(["sudo", "bluetoothctl", "devices"]).decode().split('\n')
         for r in results:
             if r.startswith("Device"):
                 parts = r.split(' ', 2)
@@ -317,7 +317,7 @@ def on_scan_bluetooth():
     except Exception as e:
         print("bluetoothctl failed, trying hcitool...", e)
         try:
-            scan_out = subprocess.check_output(["hcitool", "scan"]).decode().split('\n')
+            scan_out = subprocess.check_output(["sudo", "hcitool", "scan"]).decode().split('\n')
             for line in scan_out:
                 parts = line.split('\t')
                 if len(parts) >= 3:
@@ -332,7 +332,7 @@ def on_scan_bluetooth():
 @sio.on('request-connect-wifi')
 def on_connect_wifi(data):
     try:
-        subprocess.run(["nmcli", "dev", "wifi", "connect", data['ssid'], "password", data['password']], check=True)
+        subprocess.run(["sudo", "nmcli", "dev", "wifi", "connect", data['ssid'], "password", data['password']], check=True)
         sio.emit("connection-status", {"type": "wifi", "status": "success", "message": f"Connected to {data['ssid']}"})
         sio.emit("system-status", get_system_status())
     except Exception as e:
@@ -341,7 +341,7 @@ def on_connect_wifi(data):
 @sio.on('request-pair-bluetooth')
 def on_pair_bluetooth(data):
     try:
-        results = subprocess.check_output(["bluetoothctl", "devices"]).decode().split('\n')
+        results = subprocess.check_output(["sudo", "bluetoothctl", "devices"]).decode().split('\n')
         mac = None
         for r in results:
             if data['device'] in r:
@@ -350,8 +350,8 @@ def on_pair_bluetooth(data):
                     mac = parts[1]
                 break
         if mac:
-            subprocess.run(["bluetoothctl", "pair", mac], check=True)
-            subprocess.run(["bluetoothctl", "trust", mac], check=True)
+            subprocess.run(["sudo", "bluetoothctl", "pair", mac], check=True)
+            subprocess.run(["sudo", "bluetoothctl", "trust", mac], check=True)
             sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {data['device']}"})
         else:
             sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device MAC not found"})
@@ -380,52 +380,44 @@ def on_shutdown():
 if __name__ == '__main__':
     print(f"Connecting to {SERVER_URL} to fetch initial settings...")
     
-    # Try to fetch settings via HTTP first so we can initialize the matrix correctly
     try:
         import urllib.request
         import json
-        # We need an endpoint on the server to get settings synchronously, 
-        # but since we don't have one, we can just connect socket.io and wait for the first update-settings
     except:
         pass
 
-    # Better approach: Connect socketio first, wait for settings, then init matrix
     settings_received = threading.Event()
+    is_initial_settings = True
     
     @sio.on('update-settings')
-    def on_initial_settings(new_settings):
-        global settings
-        print("Received initial settings from server.")
-        settings.update(new_settings)
-        settings_received.set()
+    def on_update_settings(new_settings):
+        global settings, is_initial_settings
+        print("Received settings:", new_settings)
         
-        # Re-bind the normal update handler after initial load
-        @sio.on('update-settings')
-        def on_update_settings_normal(new_settings):
-            global settings
-            print("Received new settings:", new_settings)
-            
-            old_hw = settings.get("hardware", {})
-            new_hw = new_settings.get("hardware", {})
-            old_rt = settings.get("runtime", {})
-            new_rt = new_settings.get("runtime", {})
-            
-            hw_changed = (old_hw != new_hw) or (old_rt != new_rt)
-            
-            settings.update(new_settings)
-            
-            if hw_changed and HAS_MATRIX:
-                print("Hardware settings changed! Restarting matrix script...")
-                sio.emit("status-update", {"type": "info", "message": "Hardware changed. Restarting matrix display..."})
-                time.sleep(1)
-                import sys
-                os.execv(sys.executable, ['python3'] + sys.argv)
-            else:
-                if matrix:
-                    try:
-                        matrix.brightness = int(settings.get("brightness", 100))
-                    except:
-                        pass
+        old_hw = settings.get("hardware", {})
+        new_hw = new_settings.get("hardware", {})
+        old_rt = settings.get("runtime", {})
+        new_rt = new_settings.get("runtime", {})
+        
+        hw_changed = (old_hw != new_hw) or (old_rt != new_rt)
+        
+        settings.update(new_settings)
+        
+        if is_initial_settings:
+            is_initial_settings = False
+            settings_received.set()
+        elif hw_changed and HAS_MATRIX:
+            print("Hardware settings changed! Restarting matrix script...")
+            sio.emit("status-update", {"type": "info", "message": "Hardware changed. Restarting matrix display..."})
+            time.sleep(1)
+            import sys
+            os.execv(sys.executable, ['python3'] + sys.argv)
+        else:
+            if matrix:
+                try:
+                    matrix.brightness = int(settings.get("brightness", 100))
+                except:
+                    pass
 
     def connect_and_wait():
         while not settings_received.is_set():

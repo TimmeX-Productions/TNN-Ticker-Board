@@ -54,6 +54,7 @@ export default function App() {
   const [btStatus, setBtStatus] = useState<'idle' | 'pairing' | 'success' | 'error'>('idle');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [btConfigEnabled, setBtConfigEnabled] = useState(false);
+  const [rotationActive, setRotationActive] = useState(false);
 
   useEffect(() => {
     socket.on('connect', () => setStatus('Connected'));
@@ -66,6 +67,7 @@ export default function App() {
     socket.on('wifi-scan-results', (data) => setWifiNetworks(data));
     socket.on('bluetooth-scan-results', (data) => setBluetoothDevices(data));
     socket.on('update-settings', (data) => setSettings(data));
+    socket.on('rotation-status', (data) => setRotationActive(data));
     socket.on('connection-status', (data) => {
         if (data.type === 'wifi') {
             setWifiStatus(data.status);
@@ -208,7 +210,16 @@ export default function App() {
                   <CardContent className="p-6 space-y-8">
                     {/* Message Input */}
                     <div className="space-y-3">
-                      <Label className="text-zinc-300 font-semibold">Custom Message</Label>
+                      <div className="flex justify-between items-center">
+                        <Label className="text-zinc-300 font-semibold">Custom Message</Label>
+                        <Button 
+                          onClick={() => socket.emit(rotationActive ? 'stop-rotation' : 'start-rotation')} 
+                          variant={rotationActive ? "destructive" : "default"} 
+                          className={`h-8 px-3 text-xs ${!rotationActive ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                        >
+                          {rotationActive ? "Stop Module Rotation" : "Start Module Rotation"}
+                        </Button>
+                      </div>
                       <form onSubmit={sendMessage} className="flex gap-3">
                         <Input 
                           value={message} 
@@ -344,8 +355,52 @@ export default function App() {
           )}
 
           {activeTab === 'modules' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Time Module */}
+            <div className="space-y-6">
+              <Card className="bg-zinc-950 border-zinc-800">
+                <CardHeader>
+                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
+                    <Blocks className="w-5 h-5 text-orange-500" />
+                    Module Rotation Order
+                  </CardTitle>
+                  <CardDescription className="text-zinc-400">Drag or use arrows to set the order modules appear in rotation.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {(settings.plugins as any).module_order?.map((mod: string, idx: number) => (
+                      <div key={mod} className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 gap-2">
+                        <span className="text-zinc-300 capitalize text-sm font-medium">{mod}</span>
+                        <div className="flex flex-col gap-0.5 ml-2">
+                          <button 
+                            disabled={idx === 0}
+                            onClick={() => {
+                              const newOrder = [...(settings.plugins as any).module_order];
+                              [newOrder[idx], newOrder[idx - 1]] = [newOrder[idx - 1], newOrder[idx]];
+                              sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
+                            }}
+                            className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+                          >
+                            ▲
+                          </button>
+                          <button 
+                            disabled={idx === (settings.plugins as any).module_order.length - 1}
+                            onClick={() => {
+                              const newOrder = [...(settings.plugins as any).module_order];
+                              [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+                              sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
+                            }}
+                            className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {/* Time Module */}
               <Card className="bg-zinc-950 border-zinc-800">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
@@ -508,6 +563,7 @@ export default function App() {
                   </ScrollArea>
                 </CardContent>
               </Card>
+            </div>
             </div>
           )}
 
