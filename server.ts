@@ -21,7 +21,7 @@ const defaultSettings = {
     module_order: ['time', 'weather', 'sports', 'stocks', 'crypto', 'news'],
     time: { enabled: true, format: '12h', duration: 15 },
     weather: { enabled: false, location: '', api_key: '', duration: 15 },
-    sports: { enabled: false, teams: '', leagues: { NFL: true, NBA: true, MLB: true, NHL: true, NCAAF: false, NCAAB: false }, duration: 20 },
+    sports: { enabled: false, teams: '', leagues: { NFL: true, NBA: true, MLB: true, NHL: true, NCAAF: false, NCAAB: false, WNBA: false, MLS: false, EPL: false, UCL: false, LIGA: false }, duration: 20 },
     stocks: { enabled: false, symbols: '', duration: 20 },
     crypto: { enabled: false, symbols: 'BTC,ETH,DOGE', duration: 20 },
     news: { enabled: false, duration: 30 },
@@ -146,7 +146,12 @@ async function getSportsData(teams: string, leagues: any) {
             { url: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard', prefix: 'MLB', enabled: leagues?.MLB !== false },
             { url: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard', prefix: 'NHL', enabled: leagues?.NHL !== false },
             { url: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard', prefix: 'NCAAF', enabled: leagues?.NCAAF === true },
-            { url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard', prefix: 'NCAAB', enabled: leagues?.NCAAB === true }
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard', prefix: 'NCAAB', enabled: leagues?.NCAAB === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard', prefix: 'WNBA', enabled: leagues?.WNBA === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard', prefix: 'MLS', enabled: leagues?.MLS === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard', prefix: 'EPL', enabled: leagues?.EPL === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard', prefix: 'UCL', enabled: leagues?.UCL === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard', prefix: 'LIGA', enabled: leagues?.LIGA === true }
         ];
 
         const activeEndpoints = endpoints.filter(e => e.enabled);

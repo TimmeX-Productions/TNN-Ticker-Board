@@ -520,12 +520,12 @@ export default function App() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Active Leagues</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'].map(league => (
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'WNBA', 'MLS', 'EPL', 'UCL', 'LIGA'].map(league => (
                         <div key={league} className="flex items-center space-x-2">
                           <Switch 
                             id={`league-${league}`}
-                            checked={settings.plugins?.sports?.leagues?.[league] !== false} 
+                            checked={settings.plugins?.sports?.leagues?.[league] === true || (['NFL', 'NBA', 'MLB', 'NHL'].includes(league) && settings.plugins?.sports?.leagues?.[league] !== false)} 
                             onCheckedChange={(c) => {
                               const currentLeagues = settings.plugins?.sports?.leagues || {};
                               updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });

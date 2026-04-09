@@ -463,10 +463,20 @@ def on_pair_bluetooth(data):
 @sio.on('request-enable-bt-pan')
 def on_enable_bt_pan():
     try:
+        # Ensure Bluetooth is powered on and agent is running
+        subprocess.run(["sudo", "bluetoothctl", "power", "on"], check=False)
+        subprocess.run(["sudo", "bluetoothctl", "agent", "on"], check=False)
+        subprocess.run(["sudo", "bluetoothctl", "default-agent"], check=False)
+        
         # Set Bluetooth name and make discoverable
         subprocess.run(["sudo", "bluetoothctl", "system-alias", "LEDPI"], check=False)
         subprocess.run(["sudo", "bluetoothctl", "discoverable", "on"], check=False)
         subprocess.run(["sudo", "bluetoothctl", "pairable", "on"], check=False)
+        
+        # Fallback for older systems to force name change and discoverability
+        subprocess.run(["sudo", "hciconfig", "hci0", "up"], check=False)
+        subprocess.run(["sudo", "hciconfig", "hci0", "name", "LEDPI"], check=False)
+        subprocess.run(["sudo", "hciconfig", "hci0", "piscan"], check=False)
         
         # Try nmcli first (Raspberry Pi OS Bookworm+)
         try:
