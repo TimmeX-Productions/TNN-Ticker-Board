@@ -95,13 +95,18 @@ def draw_loop():
     global canvas, current_message, current_news, current_image
     
     font = graphics.Font()
-    font_path = f"../../../fonts/{settings.get('font', '7x13.bdf')}"
+    # Resolve the absolute path to the fonts directory (one level up from pi_client)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    font_path = os.path.join(base_dir, "fonts", settings.get('font', '7x13.bdf'))
+    
     if not os.path.exists(font_path):
-        font_path = "../../../fonts/7x13.bdf" # fallback
+        font_path = os.path.join(base_dir, "fonts", "7x13.bdf") # fallback
+        
     try:
         font.LoadFont(font_path)
-    except:
-        pass # If font fails to load, it might crash or just not render text
+    except Exception as e:
+        print(f"Failed to load font {font_path}: {e}")
+        # If font fails to load, we shouldn't crash, but text won't render
     
     pos = canvas.width
     bounce_dir = -1
@@ -214,10 +219,15 @@ def on_news_update(news):
 @sio.on('request-scan-wifi')
 def on_scan_wifi():
     try:
-        # Force a rescan first so we get fresh networks
-        subprocess.run(["nmcli", "dev", "wifi", "rescan"], timeout=5)
+        # Force a rescan first so we get fresh networks (ignore errors if busy)
+        try:
+            subprocess.run(["nmcli", "dev", "wifi", "rescan"], timeout=5)
+        except:
+            pass
+            
         results = subprocess.check_output(["nmcli", "-t", "-f", "SSID", "dev", "wifi"]).decode().split('\n')
-        sio.emit("wifi-scan-results", list(set([r for r in results if r])))
+        networks = list(set([r.strip() for r in results if r.strip()]))
+        sio.emit("wifi-scan-results", networks)
     except Exception as e:
         print("WiFi scan failed:", e)
         sio.emit("wifi-scan-results", [])
@@ -226,9 +236,12 @@ def on_scan_wifi():
 def on_scan_bluetooth():
     try:
         # Start discovery briefly
-        subprocess.Popen(["bluetoothctl", "scan", "on"])
-        time.sleep(4) # Wait a bit for devices to populate
-        subprocess.Popen(["bluetoothctl", "scan", "off"])
+        try:
+            subprocess.Popen(["bluetoothctl", "scan", "on"])
+            time.sleep(4) # Wait a bit for devices to populate
+            subprocess.Popen(["bluetoothctl", "scan", "off"])
+        except:
+            pass
         
         results = subprocess.check_output(["bluetoothctl", "devices"]).decode().split('\n')
         devices = []
@@ -236,7 +249,7 @@ def on_scan_bluetooth():
             if r.startswith("Device"):
                 parts = r.split(' ', 2)
                 if len(parts) >= 3:
-                    devices.append(parts[2])
+                    devices.append(parts[2].strip())
         sio.emit("bluetooth-scan-results", list(set(devices)))
     except Exception as e:
         print("Bluetooth scan failed:", e)

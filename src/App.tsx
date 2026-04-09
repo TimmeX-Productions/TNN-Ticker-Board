@@ -543,7 +543,11 @@ export default function App() {
                           <SelectValue placeholder="Select Network" />
                         </SelectTrigger>
                         <SelectContent>
-                          {wifiNetworks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                          {wifiNetworks.length > 0 ? (
+                            wifiNetworks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)
+                          ) : (
+                            <SelectItem value="none" disabled>No networks found</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <Button variant="outline" onClick={() => socket.emit('scan-wifi')} className="border-zinc-800 hover:bg-zinc-800">Scan</Button>
@@ -584,7 +588,11 @@ export default function App() {
                           <SelectValue placeholder="Select Device" />
                         </SelectTrigger>
                         <SelectContent>
-                          {bluetoothDevices.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                          {bluetoothDevices.length > 0 ? (
+                            bluetoothDevices.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)
+                          ) : (
+                            <SelectItem value="none" disabled>No devices found</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <Button variant="outline" onClick={() => socket.emit('scan-bluetooth')} className="border-zinc-800 hover:bg-zinc-800">Scan</Button>
