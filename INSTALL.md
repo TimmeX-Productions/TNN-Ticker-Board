@@ -121,6 +121,9 @@ sudo apt-get install -y nodejs
 # Install the web dashboard dependencies
 cd ~/TNN-Ticker-Board
 npm install
+
+# Build the production website files
+npm run build
 ```
 
 ---
@@ -173,7 +176,7 @@ After=network-online.target
 User=ledpi
 WorkingDirectory=/home/ledpi/TNN-Ticker-Board
 # Use the absolute path to npm
-ExecStart=/usr/bin/npm run dev
+ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
