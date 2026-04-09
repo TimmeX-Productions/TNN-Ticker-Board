@@ -1,101 +1,158 @@
-# Raspberry Pi LED Matrix Controller - Installation Guide
+# TNN Ticker Board - Raspberry Pi Installation Guide
 
-This guide will walk you through setting up your Raspberry Pi to run the LED Matrix client, which connects to the web dashboard for real-time control.
+Follow these step-by-step instructions to install and configure the LED Matrix client on your Raspberry Pi. This guide assumes you have already flashed **Raspberry Pi OS Lite (64-bit or 32-bit)** onto an SD card and have connected your Pi to your network.
 
-## 1. Hardware Requirements
-*   **Raspberry Pi** (Pi 3, 4, or 5 recommended for smooth scrolling).
-*   **RGB LED Matrix Panel(s)** (e.g., 64x32, 64x64).
-*   **Adafruit RGB Matrix Bonnet or HAT** (Highly recommended for stable GPIO timing).
-*   **5V Power Supply** (Make sure it provides enough Amps for your panels, typically 4A+ per panel).
+## Step 1: SSH into your Raspberry Pi
 
-## 2. OS Preparation
-1.  Install **Raspberry Pi OS Lite (64-bit)** using the Raspberry Pi Imager.
-2.  Enable SSH and configure your initial Wi-Fi network during the imaging process.
-3.  Boot the Pi and SSH into it.
+Open a terminal (Mac/Linux) or Command Prompt/PowerShell (Windows) and connect to your Pi:
 
-## 3. Install the RGB Matrix Library
-The client relies on the excellent `hzeller/rpi-rgb-led-matrix` library.
+```bash
+ssh pi@<YOUR_PI_IP_ADDRESS>
+```
+*(Replace `pi` with your actual username if you changed it during the Raspberry Pi Imager setup, and `<YOUR_PI_IP_ADDRESS>` with the Pi's local IP address).*
+
+---
+
+## Step 2: Clone the Repository
+
+Once logged in, download the project files directly from the GitHub repository:
+
+```bash
+# Move to your home directory
+cd ~
+
+# Clone the repository
+git clone https://github.com/TimmeX-Productions/TNN-Ticker-Board.git
+
+# Enter the project directory
+cd TNN-Ticker-Board
+```
+
+---
+
+## Step 3: Install the RGB Matrix Library
+
+The client relies on the `hzeller/rpi-rgb-led-matrix` library to communicate with the GPIO pins. The easiest way to install this and configure your Pi's hardware is using the Adafruit script:
 
 ```bash
 curl https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scripts/main/rgb-matrix.sh >rgb-matrix.sh
 sudo bash rgb-matrix.sh
 ```
-*During the script, select the appropriate options for your hardware (e.g., Adafruit HAT with PWM mod).*
 
-## 4. Install Client Dependencies
-Install the required Python packages and system utilities:
+**During the script:**
+1. Select **"Adafruit RGB Matrix Bonnet"** or **"Adafruit RGB Matrix HAT"** depending on your hardware.
+2. Select **"Quality"** (this disables the onboard audio to prevent matrix flickering, which is highly recommended).
+3. When asked to reboot, select **Yes**.
+
+---
+
+## Step 4: Install Python Dependencies
+
+After the Pi reboots, SSH back into it and install the required system packages and Python libraries:
 
 ```bash
+# Re-enter the directory
+cd ~/TNN-Ticker-Board
+
+# Update system packages
 sudo apt update && sudo apt upgrade -y
+
+# Install required system tools
 sudo apt install python3-pip python3-dev python3-pillow git network-manager bluez -y
+
+# Install Python dependencies (using --break-system-packages for modern Pi OS environments)
 sudo pip3 install python-socketio[client] psutil requests --break-system-packages
 ```
 
-## 5. Download the Client Script
-Download the `matrix_client.py` script to your Pi.
+---
 
+## Step 5: Configure the Client
+
+You need to tell the Raspberry Pi where your web dashboard is hosted so it can connect and receive commands.
+
+1. Open the client script in a text editor:
 ```bash
-mkdir -p ~/matrix_controller
-cd ~/matrix_controller
-# Download the script (replace with your actual raw URL if hosted on GitHub)
-wget https://raw.githubusercontent.com/YOUR_REPO/pi_client/matrix_client.py
+nano pi_client/matrix_client.py
 ```
 
-**Important:** Edit `matrix_client.py` and change `SERVER_URL` to the URL of your deployed web dashboard.
-```bash
-nano matrix_client.py
-# Change SERVER_URL = 'http://YOUR_SERVER_IP:3000'
+2. Find the `SERVER_URL` line near the top of the file:
+```python
+# --- Configuration ---
+SERVER_URL = 'http://YOUR_SERVER_IP:3000' # Change this to your server's IP
+# ---------------------
 ```
 
-## 6. Download a Font
-The script requires a font file to draw text.
+3. Change it to the URL where your web dashboard is deployed (e.g., `https://my-ticker-app.com` or your local server IP).
+4. Save and exit (Press `Ctrl+O`, `Enter`, then `Ctrl+X`).
+
+---
+
+## Step 6: Download a Font
+
+The script requires a default font to draw text. Let's download the standard `7x13.bdf` font into the correct directory:
+
 ```bash
-mkdir -p ~/matrix_controller/fonts
-cd ~/matrix_controller/fonts
+mkdir -p fonts
+cd fonts
 wget https://raw.githubusercontent.com/hzeller/rpi-rgb-led-matrix/master/fonts/7x13.bdf
 cd ..
 ```
 
-## 7. Run as a Systemd Service
-To ensure the matrix client starts automatically on boot and runs in the background:
+---
 
-1. Create a service file:
+## Step 7: Run on Boot (Systemd Service)
+
+To ensure the matrix client starts automatically every time you plug in the Pi, set it up as a background service.
+
+1. Create a new service file:
 ```bash
-sudo nano /etc/systemd/system/matrix.service
+sudo nano /etc/systemd/system/ticker.service
 ```
 
-2. Paste the following configuration (adjust `User` and `WorkingDirectory` if your username isn't `pi`):
+2. Paste the following configuration into the file. **Important:** If your Raspberry Pi username is NOT `pi`, change `pi` to your actual username in the `ExecStart` and `WorkingDirectory` paths!
+
 ```ini
 [Unit]
-Description=LED Matrix Controller Client
-After=network.target
+Description=TNN Ticker Board Client
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/matrix_controller/matrix_client.py
-WorkingDirectory=/home/pi/matrix_controller
+# The matrix library requires root privileges to access GPIO pins
+User=root
+WorkingDirectory=/home/pi/TNN-Ticker-Board/pi_client
+ExecStart=/usr/bin/python3 /home/pi/TNN-Ticker-Board/pi_client/matrix_client.py
 StandardOutput=inherit
 StandardError=inherit
 Restart=always
-User=root
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
-*(Note: The script runs as root because the `rpi-rgb-led-matrix` library requires root access to directly manipulate GPIO pins).*
 
-3. Enable and start the service:
+3. Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+4. Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable matrix.service
-sudo systemctl start matrix.service
+sudo systemctl enable ticker.service
+sudo systemctl start ticker.service
 ```
 
-4. Check the status:
+5. Check the status to ensure it's running correctly:
 ```bash
-sudo systemctl status matrix.service
+sudo systemctl status ticker.service
 ```
+*(You should see "Active: active (running)" and logs indicating it is connecting to your server).*
 
-## 8. Troubleshooting
-*   **Flickering/Glitches:** Ensure you have disabled the onboard audio if you are using the hardware PWM pin. The Adafruit script usually handles this. Adjust the `gpio_slowdown` setting in the web dashboard (try 4 for Pi 4, 5 for Pi 5).
-*   **Colors are wrong:** Change the `led_rgb_sequence` or `scan_mode` in the Display Settings tab.
-*   **Cannot connect to server:** Verify the `SERVER_URL` in `matrix_client.py` and ensure your Pi has internet access.
+---
+
+## Troubleshooting
+
+*   **Matrix is flickering or glitching:** Ensure you selected "Quality" during the Adafruit script to disable onboard audio. If it still flickers, go to your Web Dashboard -> Display Settings -> Hardware Configuration, and increase the **GPIO Slowdown** (Try `4` for Pi 4, or `5` for Pi 5).
+*   **Colors are swapped (e.g., Red is Blue):** Go to Web Dashboard -> Display Settings -> Advanced Timing, and change the **Hardware Mapping** or toggle **Inverse Colors**.
+*   **Checking Logs:** If the matrix isn't turning on, check the background service logs by running:
+    ```bash
+    sudo journalctl -u ticker.service -f
+    ```
