@@ -278,7 +278,10 @@ export default function App() {
                         <Slider 
                           value={[settings.brightness ?? 100]} 
                           min={0} max={100} 
-                          onValueChange={(v) => sendSettings({...settings, brightness: v[0]})}
+                          onValueChange={(v) => {
+                            setSettings({...settings, brightness: v[0]});
+                            sendSettings({...settings, brightness: v[0]});
+                          }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />
                       </div>
@@ -290,11 +293,29 @@ export default function App() {
                         <Slider 
                           value={[settings.speed ?? 50]} 
                           min={0} max={100} 
-                          onValueChange={(v) => sendSettings({...settings, speed: v[0]})}
+                          onValueChange={(v) => {
+                            setSettings({...settings, speed: v[0]});
+                            sendSettings({...settings, speed: v[0]});
+                          }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />
                       </div>
                       <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <Label className="text-zinc-300">Font Position (Up/Down)</Label>
+                          <span className="text-zinc-500 text-sm">{settings.font_y_offset ?? 0}px</span>
+                        </div>
+                        <Slider 
+                          value={[settings.font_y_offset ?? 0]} 
+                          min={-32} max={32} 
+                          onValueChange={(v) => {
+                            setSettings({...settings, font_y_offset: v[0]});
+                            sendSettings({...settings, font_y_offset: v[0]});
+                          }}
+                          className="[&_[role=slider]]:bg-orange-500"
+                        />
+                      </div>
+                      <div className="space-y-4 md:col-span-3">
                         <Label className="text-zinc-300">Color & Effect</Label>
                         <div className="flex gap-3">
                           <Input 
@@ -304,7 +325,7 @@ export default function App() {
                             className="h-10 w-20 p-1 bg-zinc-900 border-zinc-800 cursor-pointer" 
                           />
                           <Select value={settings.mode} onValueChange={(v) => sendSettings({...settings, mode: v})}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                            <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100 w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -362,14 +383,27 @@ export default function App() {
                     <Blocks className="w-5 h-5 text-orange-500" />
                     Module Rotation Order
                   </CardTitle>
-                  <CardDescription className="text-zinc-400">Drag or use arrows to set the order modules appear in rotation.</CardDescription>
+                  <CardDescription className="text-zinc-400">Drag or use arrows to set the order modules appear in rotation, and set how long each module displays.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-3">
                     {(settings.plugins as any).module_order?.map((mod: string, idx: number) => (
-                      <div key={mod} className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 gap-2">
-                        <span className="text-zinc-300 capitalize text-sm font-medium">{mod}</span>
-                        <div className="flex flex-col gap-0.5 ml-2">
+                      <div key={mod} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-md px-4 py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-zinc-300 capitalize font-medium w-24">{mod}</span>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs text-zinc-500">Duration:</Label>
+                            <Input 
+                              type="number" 
+                              min="1"
+                              className="w-20 h-8 bg-zinc-950 border-zinc-800 text-zinc-100" 
+                              value={(settings.plugins as any)[mod]?.duration || 15}
+                              onChange={(e) => updatePlugin(mod, 'duration', e.target.value)}
+                            />
+                            <span className="text-xs text-zinc-500">sec (e.g. 60 = 1m)</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
                           <button 
                             disabled={idx === 0}
                             onClick={() => {
@@ -377,7 +411,7 @@ export default function App() {
                               [newOrder[idx], newOrder[idx - 1]] = [newOrder[idx - 1], newOrder[idx]];
                               sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
                             }}
-                            className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+                            className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded disabled:opacity-30"
                           >
                             ▲
                           </button>
@@ -388,7 +422,7 @@ export default function App() {
                               [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
                               sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
                             }}
-                            className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+                            className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded disabled:opacity-30"
                           >
                             ▼
                           </button>
@@ -421,6 +455,16 @@ export default function App() {
                         <SelectItem value="24h">24-Hour</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Timezone</Label>
+                    <Input 
+                      placeholder="e.g. America/New_York" 
+                      value={settings.plugins?.time?.timezone || ''} 
+                      onChange={(e) => updatePlugin('time', 'timezone', e.target.value)}
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600"
+                    />
+                    <p className="text-xs text-zinc-500">Leave blank for local Pi time.</p>
                   </div>
                 </CardContent>
               </Card>

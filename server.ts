@@ -55,8 +55,12 @@ if (fs.existsSync(DATA_FILE)) {
   }
 }
 
+let saveTimeout: NodeJS.Timeout | null = null;
 function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(appData, null, 2));
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(appData, null, 2));
+  }, 500);
 }
 
 let rotationActive = false;
@@ -80,19 +84,42 @@ async function getWeatherData(location: string, apiKey: string) {
 
 async function getStockData(symbols: string) {
     if (!symbols) return "Stocks: Not Configured";
-    const syms = symbols.split(',').map(s => s.trim());
-    let results = [];
-    for (const sym of syms) {
-        try {
-            const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}`);
-            const data = await res.json() as any;
-            const price = data.chart.result[0].meta.regularMarketPrice;
-            results.push(`${sym}: $${price.toFixed(2)}`);
-        } catch (e) {
-            results.push(`${sym}: Error`);
-        }
+    try {
+        const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
+        const data = await res.json() as any;
+        if (!data.quoteResponse || !data.quoteResponse.result) return "Stocks: No data";
+        const results = data.quoteResponse.result.map((q: any) => {
+            const trend = q.regularMarketChange >= 0 ? '▲' : '▼';
+            return `${q.symbol}: $${q.regularMarketPrice.toFixed(2)} ${trend}`;
+        });
+        return results.join(' | ');
+    } catch (e) {
+        return "Stocks: Error fetching data";
     }
-    return results.join(' | ');
+}
+
+async function getSportsData(teams: string) {
+    try {
+        const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+        const data = await res.json() as any;
+        const events = data.events || [];
+        let scores = events.map((e: any) => {
+            const comp = e.competitions[0];
+            const home = comp.competitors[0].team.abbreviation;
+            const homeScore = comp.competitors[0].score;
+            const away = comp.competitors[1].team.abbreviation;
+            const awayScore = comp.competitors[1].score;
+            return `${away} ${awayScore} - ${home} ${homeScore}`;
+        });
+        if (teams) {
+            const teamList = teams.split(',').map(t => t.trim().toUpperCase());
+            scores = scores.filter((s: string) => teamList.some(t => s.includes(t)));
+        }
+        if (scores.length === 0) return "Sports: No games today for selected teams";
+        return scores.join(' | ');
+    } catch (e) {
+        return "Sports: Error fetching data";
+    }
 }
 
 async function startServer() {
@@ -125,7 +152,9 @@ async function startServer() {
       try {
           if (currentModule === 'time') {
               const format = plugins.time?.format === '24h' ? 'en-GB' : 'en-US';
-              message = new Date().toLocaleTimeString(format);
+              const options: any = {};
+              if (plugins.time?.timezone) options.timeZone = plugins.time.timezone;
+              message = new Date().toLocaleTimeString(format, options);
           } else if (currentModule === 'weather') {
               message = await getWeatherData(plugins.weather?.location, plugins.weather?.api_key);
           } else if (currentModule === 'stocks') {
@@ -133,7 +162,7 @@ async function startServer() {
           } else if (currentModule === 'news') {
               message = latestNews || "News: No recent updates";
           } else if (currentModule === 'sports') {
-              message = `Sports: ${plugins.sports?.teams || 'Not Configured'}`; 
+              message = await getSportsData(plugins.sports?.teams); 
           } else if (currentModule === 'entertainment') {
               message = "Enjoy the Matrix!";
           }
@@ -145,7 +174,13 @@ async function startServer() {
           io.emit("display-message", message);
       }
       
-      rotationTimer = setTimeout(processRotation, 15000); // 15 seconds per module
+      let durationSeconds = 15;
+      if (plugins[currentModule] && plugins[currentModule].duration) {
+          durationSeconds = parseInt(plugins[currentModule].duration);
+      }
+      if (isNaN(durationSeconds) || durationSeconds < 1) durationSeconds = 15;
+      
+      rotationTimer = setTimeout(processRotation, durationSeconds * 1000);
   }
 
   // Fetch RSS periodically

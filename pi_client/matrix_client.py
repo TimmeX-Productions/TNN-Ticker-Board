@@ -168,7 +168,8 @@ def draw_loop():
                 mode = settings.get("mode", "scroll")
                 text_width = sum([font.CharacterWidth(ord(c)) for c in display_text]) if hasattr(font, 'CharacterWidth') else len(display_text) * 7
                 
-                y_pos = canvas.height // 2 + 4
+                y_offset = int(settings.get("font_y_offset", 0))
+                y_pos = (canvas.height // 2) + 4 + y_offset
                 
                 if mode == "static":
                     graphics.DrawText(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
