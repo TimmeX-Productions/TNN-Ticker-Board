@@ -13,11 +13,15 @@ ssh pi@<YOUR_PI_IP_ADDRESS>
 
 ---
 
-## Step 2: Clone the Repository
+## Step 2: Install Git and Clone the Repository
 
-Once logged in, download the project files directly from the GitHub repository:
+Before you can download the project, you need to ensure `git` is installed on your Raspberry Pi.
 
 ```bash
+# Update package list and install git
+sudo apt update
+sudo apt install git -y
+
 # Move to your home directory
 cd ~
 
