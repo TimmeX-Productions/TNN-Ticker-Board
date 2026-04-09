@@ -276,11 +276,12 @@ export default function App() {
                           <span className="text-zinc-500 text-sm">{settings.brightness ?? 100}%</span>
                         </div>
                         <Slider 
-                          value={[settings.brightness ?? 100]} 
+                          value={settings.brightness ?? 100} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            setSettings({...settings, brightness: v[0]});
-                            sendSettings({...settings, brightness: v[0]});
+                            const val = Array.isArray(v) ? v[0] : v;
+                            setSettings({...settings, brightness: val});
+                            sendSettings({...settings, brightness: val});
                           }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />
@@ -291,11 +292,12 @@ export default function App() {
                           <span className="text-zinc-500 text-sm">{settings.speed ?? 50}</span>
                         </div>
                         <Slider 
-                          value={[settings.speed ?? 50]} 
+                          value={settings.speed ?? 50} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            setSettings({...settings, speed: v[0]});
-                            sendSettings({...settings, speed: v[0]});
+                            const val = Array.isArray(v) ? v[0] : v;
+                            setSettings({...settings, speed: val});
+                            sendSettings({...settings, speed: val});
                           }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />
@@ -306,11 +308,12 @@ export default function App() {
                           <span className="text-zinc-500 text-sm">{settings.font_y_offset ?? 0}px</span>
                         </div>
                         <Slider 
-                          value={[settings.font_y_offset ?? 0]} 
+                          value={settings.font_y_offset ?? 0} 
                           min={-32} max={32} 
                           onValueChange={(v) => {
-                            setSettings({...settings, font_y_offset: v[0]});
-                            sendSettings({...settings, font_y_offset: v[0]});
+                            const val = Array.isArray(v) ? v[0] : v;
+                            setSettings({...settings, font_y_offset: val});
+                            sendSettings({...settings, font_y_offset: val});
                           }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />

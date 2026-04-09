@@ -85,14 +85,30 @@ async function getWeatherData(location: string, apiKey: string) {
 async function getStockData(symbols: string) {
     if (!symbols) return "Stocks: Not Configured";
     try {
-        const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
-        const data = await res.json() as any;
-        if (!data.quoteResponse || !data.quoteResponse.result) return "Stocks: No data";
-        const results = data.quoteResponse.result.map((q: any) => {
-            const trend = q.regularMarketChange >= 0 ? '▲' : '▼';
-            return `${q.symbol}: $${q.regularMarketPrice.toFixed(2)} ${trend}`;
-        });
-        return results.join(' | ');
+        const symbolList = symbols.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+        if (symbolList.length === 0) return "Stocks: No symbols";
+
+        const results = await Promise.all(symbolList.map(async (sym) => {
+            try {
+                const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`);
+                if (!res.ok) return null;
+                const data = await res.json() as any;
+                if (!data.chart || !data.chart.result || data.chart.result.length === 0) return null;
+                
+                const meta = data.chart.result[0].meta;
+                const price = meta.regularMarketPrice;
+                const prevClose = meta.chartPreviousClose || meta.previousClose;
+                const trend = price >= prevClose ? '▲' : '▼';
+                
+                return `${meta.symbol}: $${price.toFixed(2)} ${trend}`;
+            } catch (e) {
+                return null;
+            }
+        }));
+
+        const validResults = results.filter(r => r !== null);
+        if (validResults.length === 0) return "Stocks: No data";
+        return validResults.join(' | ');
     } catch (e) {
         return "Stocks: Error fetching data";
     }
@@ -274,7 +290,7 @@ async function startServer() {
     socket.on("update-settings", (settings) => {
         appData.settings = settings;
         saveData();
-        io.emit("update-settings", settings);
+        socket.broadcast.emit("update-settings", settings);
     });
 
     socket.on("connect-wifi", (data) => {
