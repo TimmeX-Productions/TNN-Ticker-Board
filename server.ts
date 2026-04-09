@@ -124,6 +124,9 @@ async function startServer() {
     socket.on("connection-status", (status) => {
       io.emit("connection-status", status);
     });
+    socket.on("client-error", (err) => {
+      io.emit("status-update", { type: "error", message: `Pi Error: ${err}` });
+    });
     
     socket.on("send-message", (message) => {
       io.emit("display-message", message);

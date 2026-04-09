@@ -77,6 +77,7 @@ export default function App() {
     });
     socket.on('status-update', (data) => {
         if(data.type === 'success') toast.success(data.message);
+        else if(data.type === 'error') toast.error(data.message);
         else toast.info(data.message);
     });
     socket.emit('get-health');
