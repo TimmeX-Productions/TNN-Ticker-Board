@@ -521,7 +521,7 @@ export default function App() {
                   <div className="space-y-2">
                     <Label className="text-zinc-400">Active Leagues</Label>
                     <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'WNBA', 'MLS', 'EPL', 'UCL', 'LIGA'].map(league => (
+                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'NCAAW', 'NCAABS', 'NCAAH', 'WNBA', 'MLS', 'EPL', 'UCL', 'LIGA'].map(league => (
                         <div key={league} className="flex items-center space-x-2">
                           <Switch 
                             id={`league-${league}`}

@@ -28,32 +28,25 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
 
     const render = () => {
       // Clear background
-      ctx.fillStyle = '#000000';
+      ctx.fillStyle = '#050505';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw grid
-      ctx.strokeStyle = '#111111';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= cols; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * pixelSize, 0);
-        ctx.lineTo(i * pixelSize, canvas.height);
-        ctx.stroke();
-      }
-      for (let i = 0; i <= rows; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, i * pixelSize);
-        ctx.lineTo(canvas.width, i * pixelSize);
-        ctx.stroke();
+      // Draw grid to simulate LEDs
+      ctx.fillStyle = '#111111';
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          ctx.beginPath();
+          ctx.arc(i * pixelSize + pixelSize/2, j * pixelSize + pixelSize/2, pixelSize/2 - 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // Draw text
-      const color = settings.color || '#ffffff';
+      const defaultColor = settings.color || '#ffffff';
       const brightness = (settings.brightness || 100) / 100;
       
-      ctx.fillStyle = color;
       ctx.globalAlpha = brightness;
-      ctx.font = `${rows * pixelSize * 0.8}px monospace`;
+      ctx.font = `${rows * pixelSize * 0.8}px 'Share Tech Mono', monospace`;
       ctx.textBaseline = 'middle';
 
       let displayText = message;
@@ -64,16 +57,47 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
         displayText = "Waiting for messages...";
       }
 
-      if (settings.mode === 'static') {
-        ctx.fillText(displayText, 10, canvas.height / 2);
-      } else {
-        ctx.fillText(displayText, pos, canvas.height / 2);
-        
-        const textWidth = ctx.measureText(displayText).width;
+      // Parse colors
+      const parts = displayText.split(/(\{.*?\})/g);
+      
+      const colors: Record<string, string> = {
+        '{r}': '#ff0000',
+        '{g}': '#00ff00',
+        '{b}': '#0064ff',
+        '{y}': '#ffff00',
+        '{w}': '#ffffff',
+        '{c}': '#00ffff',
+        '{d}': defaultColor
+      };
+
+      let currentX = settings.mode === 'static' ? 10 : pos;
+      let currentColor = defaultColor;
+
+      parts.forEach(part => {
+        if (colors[part]) {
+          currentColor = colors[part];
+        } else if (part.startsWith('{img:') && part.endsWith('}')) {
+          // Simulate image placeholder
+          ctx.fillStyle = '#333';
+          const imgSize = rows * pixelSize * 0.8;
+          ctx.fillRect(currentX, canvas.height / 2 - imgSize / 2, imgSize, imgSize);
+          currentX += imgSize + 8;
+        } else if (part) {
+          ctx.fillStyle = currentColor;
+          // Add a slight glow effect
+          ctx.shadowColor = currentColor;
+          ctx.shadowBlur = 4;
+          ctx.fillText(part, currentX, canvas.height / 2);
+          ctx.shadowBlur = 0;
+          currentX += ctx.measureText(part).width;
+        }
+      });
+
+      if (settings.mode !== 'static') {
         const speed = settings.speed || 50;
         pos -= (speed / 20);
         
-        if (pos + textWidth < 0) {
+        if (currentX < 0) {
           pos = canvas.width;
         }
       }
@@ -90,10 +114,11 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
   }, [settings, message, news]);
 
   return (
-    <div className="w-full overflow-hidden bg-black rounded-lg border border-zinc-800 p-4 flex items-center justify-center">
+    <div className="w-full overflow-hidden bg-black rounded-lg border-2 border-zinc-800 p-4 flex items-center justify-center shadow-inner relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none z-10"></div>
       <canvas 
         ref={canvasRef} 
-        className="max-w-full h-auto shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+        className="max-w-full h-auto shadow-[0_0_30px_rgba(255,100,0,0.1)] relative z-0"
         style={{ imageRendering: 'pixelated' }}
       />
     </div>
