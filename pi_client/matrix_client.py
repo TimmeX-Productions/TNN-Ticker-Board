@@ -260,17 +260,6 @@ def connect():
     print("Connected to server!")
     sio.emit("system-status", get_system_status())
 
-@sio.on('update-settings')
-def on_update_settings(new_settings):
-    global settings
-    print("Received new settings:", new_settings)
-    settings.update(new_settings)
-    if matrix:
-        try:
-            matrix.brightness = int(settings.get("brightness", 100))
-        except:
-            pass
-
 @sio.on('display-message')
 def on_display_message(msg):
     global current_message
@@ -389,7 +378,71 @@ def on_shutdown():
     os.system("sudo shutdown -h now")
 
 if __name__ == '__main__':
-    print("Initializing Matrix...")
+    print(f"Connecting to {SERVER_URL} to fetch initial settings...")
+    
+    # Try to fetch settings via HTTP first so we can initialize the matrix correctly
+    try:
+        import urllib.request
+        import json
+        # We need an endpoint on the server to get settings synchronously, 
+        # but since we don't have one, we can just connect socket.io and wait for the first update-settings
+    except:
+        pass
+
+    # Better approach: Connect socketio first, wait for settings, then init matrix
+    settings_received = threading.Event()
+    
+    @sio.on('update-settings')
+    def on_initial_settings(new_settings):
+        global settings
+        print("Received initial settings from server.")
+        settings.update(new_settings)
+        settings_received.set()
+        
+        # Re-bind the normal update handler after initial load
+        @sio.on('update-settings')
+        def on_update_settings_normal(new_settings):
+            global settings
+            print("Received new settings:", new_settings)
+            
+            old_hw = settings.get("hardware", {})
+            new_hw = new_settings.get("hardware", {})
+            old_rt = settings.get("runtime", {})
+            new_rt = new_settings.get("runtime", {})
+            
+            hw_changed = (old_hw != new_hw) or (old_rt != new_rt)
+            
+            settings.update(new_settings)
+            
+            if hw_changed and HAS_MATRIX:
+                print("Hardware settings changed! Restarting matrix script...")
+                sio.emit("status-update", {"type": "info", "message": "Hardware changed. Restarting matrix display..."})
+                time.sleep(1)
+                import sys
+                os.execv(sys.executable, ['python3'] + sys.argv)
+            else:
+                if matrix:
+                    try:
+                        matrix.brightness = int(settings.get("brightness", 100))
+                    except:
+                        pass
+
+    def connect_and_wait():
+        while not settings_received.is_set():
+            try:
+                sio.connect(SERVER_URL)
+                # Wait up to 5 seconds for settings to arrive
+                settings_received.wait(5)
+                if not settings_received.is_set():
+                    sio.disconnect()
+            except Exception as e:
+                print(f"Connection failed: {e}. Retrying in 2s...")
+                time.sleep(2)
+
+    print("Waiting for server connection to load hardware config...")
+    connect_and_wait()
+    
+    print("Initializing Matrix with server settings...")
     init_matrix()
     
     print("Starting draw thread...")
@@ -400,11 +453,5 @@ if __name__ == '__main__':
     bg_thread = threading.Thread(target=background_tasks, daemon=True)
     bg_thread.start()
     
-    print(f"Connecting to {SERVER_URL}...")
-    while True:
-        try:
-            sio.connect(SERVER_URL)
-            sio.wait()
-        except Exception as e:
-            print(f"Connection failed: {e}. Retrying in 5s...")
-            time.sleep(5)
+    # Keep main thread alive
+    sio.wait()
