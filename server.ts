@@ -12,43 +12,65 @@ const parser = new Parser();
 const DATA_FILE = path.join(__dirname, "data.json");
 
 // Default data structure
+const defaultSettings = {
+  brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll',
+  font: '7x13.bdf', image_url: '', font_y_offset: 0,
+  hardware: { rows: 32, cols: 64, chain_length: 2, parallel: 1, brightness: 90, hardware_mapping: "adafruit-hat-pwm", scan_mode: 0, pwm_bits: 9, pwm_dither_bits: 1, pwm_lsb_nanoseconds: 130, disable_hardware_pulsing: false, inverse_colors: false, show_refresh_rate: false, limit_refresh_rate_hz: 100 },
+  runtime: { gpio_slowdown: 4 },
+  plugins: {
+    module_order: ['time', 'weather', 'sports', 'stocks', 'crypto', 'news'],
+    time: { enabled: true, format: '12h', duration: 15 },
+    weather: { enabled: false, location: '', api_key: '', duration: 15 },
+    sports: { enabled: false, teams: '', leagues: { NFL: true, NBA: true, MLB: true, NHL: true, NCAAF: false, NCAAB: false }, duration: 20 },
+    stocks: { enabled: false, symbols: '', duration: 20 },
+    crypto: { enabled: false, symbols: 'BTC,ETH,DOGE', duration: 20 },
+    news: { enabled: false, duration: 30 },
+    entertainment: { enabled: false, mode: 'game_of_life', duration: 30 }
+  }
+};
+
 let appData = {
   feeds: ["https://www.espn.com/espn/rss/news"],
   presets: {} as Record<string, any>,
-  settings: {
-    brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll',
-    font: '7x13.bdf', image_url: '',
-    hardware: { rows: 32, cols: 64, chain_length: 2, parallel: 1, brightness: 90, hardware_mapping: "adafruit-hat-pwm", scan_mode: 0, pwm_bits: 9, pwm_dither_bits: 1, pwm_lsb_nanoseconds: 130, disable_hardware_pulsing: false, inverse_colors: false, show_refresh_rate: false, limit_refresh_rate_hz: 100 },
-    runtime: { gpio_slowdown: 4 },
-    display_durations: { calendar: 30, hockey_scoreboard: 45, weather: 20, stocks: 25 },
-    use_short_date_format: true,
-    dynamic_duration: { max_duration_seconds: 60 },
-    plugins: {
-      time: { enabled: true, format: '12h' },
-      weather: { enabled: false, location: '', api_key: '' },
-      sports: { enabled: false, teams: '' },
-      stocks: { enabled: false, symbols: '' },
-      entertainment: { enabled: false, mode: 'game_of_life' }
+  settings: JSON.parse(JSON.stringify(defaultSettings))
+};
+
+// Deep merge helper
+function deepMerge(target: any, source: any) {
+  for (const key of Object.keys(source)) {
+    if (Array.isArray(source[key])) {
+      if (key === 'module_order' && Array.isArray(target[key])) {
+        // Deduplicate and append any new default modules
+        target[key] = Array.from(new Set([...source[key], ...target[key]]));
+      } else {
+        target[key] = source[key];
+      }
+    } else if (source[key] !== null && typeof source[key] === 'object') {
+      if (target[key] !== null && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+        target[key] = deepMerge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
+      }
+    } else {
+      target[key] = source[key];
     }
   }
-};
+  return target;
+}
 
 // Load data if exists
 if (fs.existsSync(DATA_FILE)) {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    appData = { ...appData, ...JSON.parse(raw) };
-    if (!appData.settings.plugins) {
-      appData.settings.plugins = {
-        time: { enabled: true, format: '12h' },
-        weather: { enabled: false, location: '', api_key: '' },
-        sports: { enabled: false, teams: '' },
-        stocks: { enabled: false, symbols: '' },
-        entertainment: { enabled: false, mode: 'game_of_life' }
-      };
-    }
-    if (!appData.settings.plugins.module_order) {
-      appData.settings.plugins.module_order = ['time', 'weather', 'sports', 'stocks', 'news'];
+    const loadedData = JSON.parse(raw);
+    
+    // Merge feeds and presets
+    if (loadedData.feeds) appData.feeds = loadedData.feeds;
+    if (loadedData.presets) appData.presets = loadedData.presets;
+    
+    // Deep merge settings to preserve new defaults
+    if (loadedData.settings) {
+      appData.settings = deepMerge(JSON.parse(JSON.stringify(defaultSettings)), loadedData.settings);
     }
   } catch (e) {
     console.error("Failed to load data.json", e);
@@ -116,23 +138,26 @@ async function getStockData(symbols: string) {
     }
 }
 
-async function getSportsData(teams: string) {
+async function getSportsData(teams: string, leagues: any) {
     try {
-        const endpoints = [
-            'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
-            'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
-            'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
-            'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
-            'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
-            'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard'
+        const endpoints: {url: string, prefix: string, enabled: boolean}[] = [
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', prefix: 'NFL', enabled: leagues?.NFL !== false },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard', prefix: 'NBA', enabled: leagues?.NBA !== false },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard', prefix: 'MLB', enabled: leagues?.MLB !== false },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard', prefix: 'NHL', enabled: leagues?.NHL !== false },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard', prefix: 'NCAAF', enabled: leagues?.NCAAF === true },
+            { url: 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard', prefix: 'NCAAB', enabled: leagues?.NCAAB === true }
         ];
 
-        const allEvents = await Promise.all(endpoints.map(async (url) => {
+        const activeEndpoints = endpoints.filter(e => e.enabled);
+        if (activeEndpoints.length === 0) return "Sports: No leagues enabled";
+
+        const allEvents = await Promise.all(activeEndpoints.map(async (ep) => {
             try {
-                const res = await fetch(url);
+                const res = await fetch(ep.url);
                 if (!res.ok) return [];
                 const data = await res.json() as any;
-                return data.events || [];
+                return (data.events || []).map((e: any) => ({ ...e, _prefix: ep.prefix }));
             } catch (e) {
                 return [];
             }
@@ -146,7 +171,15 @@ async function getSportsData(teams: string) {
                 const away = comp.competitors.find((c: any) => c.homeAway === 'away');
                 const status = e.status.type.shortDetail; // e.g. "Final", "3rd Qtr", "12:00 PM"
                 
-                return `${away.team.abbreviation} ${away.score} @ ${home.team.abbreviation} ${home.score} (${status})`;
+                const homeScore = parseInt(home.score) || 0;
+                const awayScore = parseInt(away.score) || 0;
+                
+                // Color winning team green, losing team red (if game has started/finished)
+                const isStarted = e.status.type.state !== 'pre';
+                const homeColor = isStarted ? (homeScore > awayScore ? '{g}' : (homeScore < awayScore ? '{r}' : '{w}')) : '{w}';
+                const awayColor = isStarted ? (awayScore > homeScore ? '{g}' : (awayScore < homeScore ? '{r}' : '{w}')) : '{w}';
+                
+                return `{y}[${e._prefix}]{d} ${awayColor}${away.team.abbreviation} ${away.score}{d} @ ${homeColor}${home.team.abbreviation} ${home.score}{d} ({y}${status}{d})`;
             } catch (err) {
                 return null;
             }
@@ -159,7 +192,7 @@ async function getSportsData(teams: string) {
             }
         }
         
-        if (scores.length === 0) return "Sports: No games today for selected teams";
+        if (scores.length === 0) return "Sports: No games today for selected teams/leagues";
         return scores.join(' | ');
     } catch (e) {
         return "Sports: Error fetching data";
@@ -206,7 +239,9 @@ async function startServer() {
           } else if (currentModule === 'news') {
               message = latestNews || "News: No recent updates";
           } else if (currentModule === 'sports') {
-              message = await getSportsData(plugins.sports?.teams); 
+              message = await getSportsData(plugins.sports?.teams, plugins.sports?.leagues); 
+          } else if (currentModule === 'crypto') {
+              message = await getStockData(plugins.crypto?.symbols?.split(',').map((s: string) => s.trim() + '-USD').join(','));
           } else if (currentModule === 'entertainment') {
               message = "Enjoy the Matrix!";
           }

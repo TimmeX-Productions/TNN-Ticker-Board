@@ -11,7 +11,7 @@ import { toast, Toaster } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Activity, Wifi, Bluetooth, Power, Settings2, Rss, MonitorPlay, Save, Trash2, Send, Image as ImageIcon, Type, Clock, Cloud, Trophy, TrendingUp, Gamepad2, LayoutDashboard, Blocks } from 'lucide-react';
+import { Activity, Wifi, Bluetooth, Power, Settings2, Rss, MonitorPlay, Save, Trash2, Send, Image as ImageIcon, Type, Clock, Cloud, Trophy, TrendingUp, Gamepad2, LayoutDashboard, Blocks, Bitcoin } from 'lucide-react';
 import DisplaySettings from '@/components/DisplaySettings';
 import MatrixPreview from '@/components/MatrixPreview';
 
@@ -395,7 +395,7 @@ export default function App() {
                 <CardContent>
                   <div className="flex flex-col gap-3">
                     {(settings.plugins as any).module_order?.map((mod: string, idx: number) => (
-                      <div key={mod} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-md px-4 py-2">
+                      <div key={`${mod}-${idx}`} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-md px-4 py-2">
                         <div className="flex items-center gap-3">
                           <span className="text-zinc-300 capitalize font-medium w-24">{mod}</span>
                           <div className="flex items-center gap-2">
@@ -519,11 +519,29 @@ export default function App() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
+                    <Label className="text-zinc-400">Active Leagues</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'].map(league => (
+                        <div key={league} className="flex items-center space-x-2">
+                          <Switch 
+                            id={`league-${league}`}
+                            checked={settings.plugins?.sports?.leagues?.[league] !== false} 
+                            onCheckedChange={(c) => {
+                              const currentLeagues = settings.plugins?.sports?.leagues || {};
+                              updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });
+                            }} 
+                          />
+                          <Label htmlFor={`league-${league}`} className="text-xs text-zinc-300">{league}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-zinc-400">Favorite Teams (Comma separated)</Label>
                     <Input 
                       value={settings.plugins?.sports?.teams || ''} 
                       onChange={(e) => updatePlugin('sports', 'teams', e.target.value)} 
-                      placeholder="e.g. LAL, NYY, DAL" 
+                      placeholder="e.g. LAL, NYY, DAL (Leave blank for all)" 
                       className="bg-zinc-900 border-zinc-800 text-zinc-100"
                     />
                   </div>
@@ -546,6 +564,28 @@ export default function App() {
                       value={settings.plugins?.stocks?.symbols || ''} 
                       onChange={(e) => updatePlugin('stocks', 'symbols', e.target.value)} 
                       placeholder="e.g. AAPL, MSFT, TSLA" 
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Crypto Module */}
+              <Card className="bg-zinc-950 border-zinc-800">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
+                    <Bitcoin className="w-5 h-5 text-orange-500" />
+                    Crypto
+                  </CardTitle>
+                  <Switch checked={settings.plugins?.crypto?.enabled} onCheckedChange={(c) => updatePlugin('crypto', 'enabled', c)} />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-400">Symbols (Comma separated)</Label>
+                    <Input 
+                      value={settings.plugins?.crypto?.symbols || ''} 
+                      onChange={(e) => updatePlugin('crypto', 'symbols', e.target.value)} 
+                      placeholder="e.g. BTC, ETH, DOGE" 
                       className="bg-zinc-900 border-zinc-800 text-zinc-100"
                     />
                   </div>
