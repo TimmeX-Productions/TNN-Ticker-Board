@@ -7,9 +7,9 @@ Follow these step-by-step instructions to install and configure the LED Matrix c
 Open a terminal (Mac/Linux) or Command Prompt/PowerShell (Windows) and connect to your Pi:
 
 ```bash
-ssh pi@<YOUR_PI_IP_ADDRESS>
+ssh ledpi@<YOUR_PI_IP_ADDRESS>
 ```
-*(Replace `pi` with your actual username if you changed it during the Raspberry Pi Imager setup, and `<YOUR_PI_IP_ADDRESS>` with the Pi's local IP address).*
+*(Replace `ledpi` with your actual username if you changed it during the Raspberry Pi Imager setup, and `<YOUR_PI_IP_ADDRESS>` with the Pi's local IP address).*
 
 ---
 
@@ -26,10 +26,15 @@ sudo apt install git -y
 cd ~
 
 # Clone the repository
+# IMPORTANT: Replace the URL below with YOUR actual GitHub repository URL 
+# after you export this project from AI Studio to your GitHub account.
 git clone https://github.com/TimmeX-Productions/TNN-Ticker-Board.git
 
 # Enter the project directory
 cd TNN-Ticker-Board
+
+# Make sure you have the absolute latest code that we just built!
+git pull
 ```
 
 ---
@@ -74,7 +79,7 @@ sudo pip3 install python-socketio[client] psutil requests --break-system-package
 
 You need to tell the Raspberry Pi where your web dashboard is hosted so it can connect and receive commands.
 
-1. Open the client script in a text editor:
+1. Open the client script in a text editor. **Note: Linux is case-sensitive! It is `pi_client` (all lowercase).**
 ```bash
 nano pi_client/matrix_client.py
 ```
@@ -86,7 +91,7 @@ SERVER_URL = 'http://YOUR_SERVER_IP:3000' # Change this to your server's IP
 # ---------------------
 ```
 
-3. Change it to the URL where your web dashboard is deployed (e.g., `https://my-ticker-app.com` or your local server IP).
+3. Change it to the URL where your web dashboard is deployed (e.g., `http://127.0.0.1:3000` if running on the same Pi).
 4. Save and exit (Press `Ctrl+O`, `Enter`, then `Ctrl+X`).
 
 ---
@@ -104,17 +109,33 @@ cd ..
 
 ---
 
-## Step 7: Run on Boot (Systemd Service)
+## Step 7: Install Node.js and the Web Dashboard
 
-To ensure the matrix client starts automatically every time you plug in the Pi, set it up as a background service.
+To run the web interface on port 3000, you need Node.js installed.
 
-1. Create a new service file:
+```bash
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install the web dashboard dependencies
+cd ~/TNN-Ticker-Board
+npm install
+```
+
+---
+
+## Step 8: Run on Boot (Systemd Services)
+
+To ensure both the matrix client and the web dashboard start automatically every time you plug in the Pi, set them up as background services.
+
+### 1. The Matrix Client Service
+Create the service file:
 ```bash
 sudo nano /etc/systemd/system/ticker.service
 ```
 
-2. Paste the following configuration into the file. **Important:** If your Raspberry Pi username is NOT `pi`, change `pi` to your actual username in the `ExecStart` and `WorkingDirectory` paths!
-
+Paste the following configuration. **Note: Linux is case-sensitive! Use `pi_client` not `Pi_Client`.**
 ```ini
 [Unit]
 Description=TNN Ticker Board Client
@@ -124,8 +145,8 @@ Wants=network-online.target
 [Service]
 # The matrix library requires root privileges to access GPIO pins
 User=root
-WorkingDirectory=/home/pi/TNN-Ticker-Board/pi_client
-ExecStart=/usr/bin/python3 /home/pi/TNN-Ticker-Board/pi_client/matrix_client.py
+WorkingDirectory=/home/ledpi/TNN-Ticker-Board/pi_client
+ExecStart=/usr/bin/python3 /home/ledpi/TNN-Ticker-Board/pi_client/matrix_client.py
 StandardOutput=inherit
 StandardError=inherit
 Restart=always
@@ -134,29 +155,47 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 ```
+Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
-3. Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+### 2. The Web Dashboard Service
+Create the service file:
+```bash
+sudo nano /etc/systemd/system/ticker-web.service
+```
 
-4. Enable and start the service:
+Paste the following configuration:
+```ini
+[Unit]
+Description=TNN Ticker Board Web Dashboard
+After=network-online.target
+
+[Service]
+User=ledpi
+WorkingDirectory=/home/ledpi/TNN-Ticker-Board
+# Use the absolute path to npm
+ExecStart=/usr/bin/npm run dev
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+### 3. Enable and Start Both Services
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable ticker.service
+sudo systemctl enable ticker-web.service
 sudo systemctl start ticker.service
+sudo systemctl start ticker-web.service
 ```
 
-5. Check the status to ensure it's running correctly:
+### 4. Check Status
+To see if they are running correctly:
 ```bash
 sudo systemctl status ticker.service
+sudo systemctl status ticker-web.service
 ```
-*(You should see "Active: active (running)" and logs indicating it is connecting to your server).*
-
----
-
-## Troubleshooting
-
-*   **Matrix is flickering or glitching:** Ensure you selected "Quality" during the Adafruit script to disable onboard audio. If it still flickers, go to your Web Dashboard -> Display Settings -> Hardware Configuration, and increase the **GPIO Slowdown** (Try `4` for Pi 4, or `5` for Pi 5).
-*   **Colors are swapped (e.g., Red is Blue):** Go to Web Dashboard -> Display Settings -> Advanced Timing, and change the **Hardware Mapping** or toggle **Inverse Colors**.
-*   **Checking Logs:** If the matrix isn't turning on, check the background service logs by running:
-    ```bash
-    sudo journalctl -u ticker.service -f
-    ```
+*(You should see "Active: active (running)" for both).*
