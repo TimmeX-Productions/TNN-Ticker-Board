@@ -113,6 +113,37 @@ def load_image(url):
         current_image = None
         last_image_url = ""
 
+import re
+
+def get_colored_text_width(font, text):
+    clean_text = re.sub(r'\{.\}', '', text)
+    if hasattr(font, 'CharacterWidth'):
+        return sum([font.CharacterWidth(ord(c)) for c in clean_text])
+    return len(clean_text) * 7
+
+def draw_colored_text(canvas, font, x, y, default_color, text):
+    parts = re.split(r'(\{.\})', text)
+    current_color = default_color
+    current_x = x
+    
+    colors = {
+        '{r}': graphics.Color(255, 0, 0),
+        '{g}': graphics.Color(0, 255, 0),
+        '{b}': graphics.Color(0, 100, 255),
+        '{y}': graphics.Color(255, 255, 0),
+        '{w}': graphics.Color(255, 255, 255),
+        '{d}': default_color
+    }
+    
+    for part in parts:
+        if part in colors:
+            current_color = colors[part]
+        elif part:
+            len_drawn = graphics.DrawText(canvas, font, current_x, y, current_color, part)
+            current_x += len_drawn
+            
+    return current_x - x
+
 def draw_loop():
     global canvas, current_message, current_news, current_image, font_loaded, font
     
@@ -166,23 +197,23 @@ def draw_loop():
 
             if display_text and font_loaded:
                 mode = settings.get("mode", "scroll")
-                text_width = sum([font.CharacterWidth(ord(c)) for c in display_text]) if hasattr(font, 'CharacterWidth') else len(display_text) * 7
+                text_width = get_colored_text_width(font, display_text)
                 
                 y_offset = int(settings.get("font_y_offset", 0))
                 y_pos = (canvas.height // 2) + 4 + y_offset
                 
                 if mode == "static":
-                    graphics.DrawText(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
+                    draw_colored_text(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
                 elif mode == "bounce":
-                    graphics.DrawText(canvas, font, pos, y_pos, text_color, display_text)
+                    draw_colored_text(canvas, font, pos, y_pos, text_color, display_text)
                     pos += bounce_dir
                     if pos < 0 or pos + text_width > canvas.width:
                         bounce_dir *= -1
                 elif mode == "flash":
                     if int(time.time() * 2) % 2 == 0:
-                        graphics.DrawText(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
+                        draw_colored_text(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
                 else: # scroll
-                    len_drawn = graphics.DrawText(canvas, font, pos, y_pos, text_color, display_text)
+                    draw_colored_text(canvas, font, pos, y_pos, text_color, display_text)
                     pos -= 1
                     if (pos + text_width < 0):
                         pos = canvas.width
@@ -202,20 +233,35 @@ def get_system_status():
     ip_address = "Unknown"
     
     try:
-        net = psutil.net_if_stats()
         addrs = psutil.net_if_addrs()
         
-        for iface, addr_list in addrs.items():
-            if iface == 'lo': continue
-            if iface in net and net[iface].is_up:
-                for addr in addr_list:
+        # Prioritize common interfaces
+        priority_ifaces = ['wlan0', 'eth0', 'bnep0', 'pan0', 'en0']
+        
+        # First pass: check priority interfaces
+        for iface in priority_ifaces:
+            if iface in addrs:
+                for addr in addrs[iface]:
                     if addr.family == socket.AF_INET and not addr.address.startswith("127."):
                         ip_address = addr.address
                         network = f"Connected ({iface})"
                         break
             if ip_address != "Unknown":
                 break
+                
+        # Second pass: check any other interface if not found
+        if ip_address == "Unknown":
+            for iface, addr_list in addrs.items():
+                if iface == 'lo' or iface.startswith('docker') or iface.startswith('veth'): continue
+                for addr in addr_list:
+                    if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+                        ip_address = addr.address
+                        network = f"Connected ({iface})"
+                        break
+                if ip_address != "Unknown":
+                    break
     except Exception as e:
+        print(f"IP detection error: {e}")
         pass
 
     bluetooth = "Unknown"
@@ -302,18 +348,23 @@ def on_scan_wifi():
 def on_scan_bluetooth():
     devices = []
     try:
+        # Try using timeout with bluetoothctl (works on newer bluez)
         try:
-            subprocess.Popen(["sudo", "bluetoothctl", "scan", "on"])
-            time.sleep(4)
-            subprocess.Popen(["sudo", "bluetoothctl", "scan", "off"])
+            subprocess.run(["sudo", "bluetoothctl", "--timeout", "5", "scan", "on"], capture_output=True)
         except:
-            pass
+            # Fallback to manual sleep
+            p = subprocess.Popen(["sudo", "bluetoothctl", "scan", "on"])
+            time.sleep(5)
+            subprocess.Popen(["sudo", "bluetoothctl", "scan", "off"]).wait()
+            
         results = subprocess.check_output(["sudo", "bluetoothctl", "devices"]).decode().split('\n')
         for r in results:
             if r.startswith("Device"):
                 parts = r.split(' ', 2)
                 if len(parts) >= 3:
-                    devices.append(parts[2].strip())
+                    name = parts[2].strip()
+                    if name and name != parts[1]: # Avoid just showing MAC addresses if possible
+                        devices.append(name)
         devices = list(set(devices))
     except Exception as e:
         print("bluetoothctl failed, trying hcitool...", e)
@@ -322,7 +373,9 @@ def on_scan_bluetooth():
             for line in scan_out:
                 parts = line.split('\t')
                 if len(parts) >= 3:
-                    devices.append(parts[2].strip())
+                    name = parts[2].strip()
+                    if name:
+                        devices.append(name)
             devices = list(set(devices))
         except Exception as e2:
             print("hcitool failed:", e2)
@@ -358,6 +411,31 @@ def on_pair_bluetooth(data):
             sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device MAC not found"})
     except Exception as e:
         sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": f"Failed: {str(e)}"})
+
+@sio.on('request-enable-bt-pan')
+def on_enable_bt_pan():
+    try:
+        # Try nmcli first (Raspberry Pi OS Bookworm+)
+        try:
+            existing = subprocess.run(["sudo", "nmcli", "connection", "show"], capture_output=True, text=True)
+            if "bt-pan" in existing.stdout:
+                subprocess.run(["sudo", "nmcli", "connection", "up", "bt-pan"], check=True)
+            else:
+                subprocess.run(["sudo", "nmcli", "connection", "add", "type", "bluetooth", "autoconnect", "yes", "bt-type", "nap", "ipv4.method", "shared", "ipv4.address", "10.0.0.1/24", "ipv6.method", "ignore", "con-name", "bt-pan"], check=True)
+            sio.emit("status-update", {"type": "success", "message": "Bluetooth Hotspot Enabled! Connect phone via Bluetooth, then open http://10.0.0.1:3000"})
+        except Exception as e1:
+            print("nmcli failed, trying bt-network...", e1)
+            # Fallback to bt-network (older OS)
+            subprocess.Popen(["sudo", "bt-network", "-s", "nap", "pan0"])
+            # We also need to assign an IP to pan0 in this case, but it's complex without dnsmasq.
+            # We'll just run it and hope they have a bridge or dhcp setup.
+            time.sleep(2)
+            subprocess.run(["sudo", "ifconfig", "pan0", "10.0.0.1", "up"], check=False)
+            sio.emit("status-update", {"type": "success", "message": "Bluetooth Hotspot (bt-network) Started! Connect phone, then open http://10.0.0.1:3000"})
+            
+        sio.emit("system-status", get_system_status())
+    except Exception as e:
+        sio.emit("status-update", {"type": "error", "message": f"Failed to enable BT PAN: {str(e)}"})
 
 @sio.on('toggle-bt-config')
 def on_toggle_bt_config(enabled):

@@ -251,18 +251,22 @@ export default function App() {
                         <p className="text-xs text-zinc-500">Overrides text if provided. Best with small images.</p>
                       </div>
                       <div className="space-y-4">
-                        <Label className="text-zinc-300 flex items-center gap-2"><Type className="w-4 h-4"/> Font</Label>
+                        <Label className="text-zinc-300 flex items-center gap-2"><Type className="w-4 h-4"/> Font & Size</Label>
                         <Select value={settings.font || '7x13.bdf'} onValueChange={(v) => sendSettings({...settings, font: v})}>
                           <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="4x6.bdf">4x6 (Small)</SelectItem>
-                            <SelectItem value="5x8.bdf">5x8</SelectItem>
+                            <SelectItem value="4x6.bdf">4x6 (Tiny)</SelectItem>
+                            <SelectItem value="5x8.bdf">5x8 (Small)</SelectItem>
+                            <SelectItem value="6x10.bdf">6x10 (Medium-Small)</SelectItem>
                             <SelectItem value="7x13.bdf">7x13 (Default)</SelectItem>
+                            <SelectItem value="8x13.bdf">8x13 (Medium-Large)</SelectItem>
                             <SelectItem value="9x18.bdf">9x18 (Large)</SelectItem>
+                            <SelectItem value="10x20.bdf">10x20 (Extra Large)</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-zinc-500">BDF fonts have fixed sizes. Select a larger font to increase size.</p>
                       </div>
                     </div>
 
@@ -675,7 +679,10 @@ export default function App() {
                       <span className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                         <Bluetooth className="w-4 h-4" /> Bluetooth
                       </span>
-                      <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800">{systemStatus.bluetooth}</Badge>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => socket.emit('enable-bt-pan')} className="h-6 text-xs border-zinc-800 hover:bg-zinc-800">Enable Hotspot</Button>
+                        <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800">{systemStatus.bluetooth}</Badge>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between p-3 border border-zinc-800 rounded-md bg-zinc-900/50">

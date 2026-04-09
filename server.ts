@@ -63,7 +63,7 @@ function saveData() {
   }, 500);
 }
 
-let rotationActive = false;
+let rotationActive = true;
 let rotationIndex = -1;
 let rotationTimer: NodeJS.Timeout | null = null;
 let latestNews = "";
@@ -98,9 +98,11 @@ async function getStockData(symbols: string) {
                 const meta = data.chart.result[0].meta;
                 const price = meta.regularMarketPrice;
                 const prevClose = meta.chartPreviousClose || meta.previousClose;
-                const trend = price >= prevClose ? '▲' : '▼';
+                const isPositive = price >= prevClose;
+                const trend = isPositive ? '▲' : '▼';
+                const colorTag = isPositive ? '{g}' : '{r}';
                 
-                return `${meta.symbol}: $${price.toFixed(2)} ${trend}`;
+                return `${meta.symbol}: $${price.toFixed(2)} ${colorTag}${trend}{d}`;
             } catch (e) {
                 return null;
             }
@@ -116,21 +118,47 @@ async function getStockData(symbols: string) {
 
 async function getSportsData(teams: string) {
     try {
-        const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
-        const data = await res.json() as any;
-        const events = data.events || [];
+        const endpoints = [
+            'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
+            'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
+            'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
+            'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
+            'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard',
+            'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard'
+        ];
+
+        const allEvents = await Promise.all(endpoints.map(async (url) => {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return [];
+                const data = await res.json() as any;
+                return data.events || [];
+            } catch (e) {
+                return [];
+            }
+        }));
+
+        const events = allEvents.flat();
         let scores = events.map((e: any) => {
-            const comp = e.competitions[0];
-            const home = comp.competitors[0].team.abbreviation;
-            const homeScore = comp.competitors[0].score;
-            const away = comp.competitors[1].team.abbreviation;
-            const awayScore = comp.competitors[1].score;
-            return `${away} ${awayScore} - ${home} ${homeScore}`;
-        });
+            try {
+                const comp = e.competitions[0];
+                const home = comp.competitors.find((c: any) => c.homeAway === 'home');
+                const away = comp.competitors.find((c: any) => c.homeAway === 'away');
+                const status = e.status.type.shortDetail; // e.g. "Final", "3rd Qtr", "12:00 PM"
+                
+                return `${away.team.abbreviation} ${away.score} @ ${home.team.abbreviation} ${home.score} (${status})`;
+            } catch (err) {
+                return null;
+            }
+        }).filter(s => s !== null);
+
         if (teams) {
-            const teamList = teams.split(',').map(t => t.trim().toUpperCase());
-            scores = scores.filter((s: string) => teamList.some(t => s.includes(t)));
+            const teamList = teams.split(',').map(t => t.trim().toUpperCase()).filter(t => t);
+            if (teamList.length > 0) {
+                scores = scores.filter((s: string) => teamList.some(t => s.includes(t)));
+            }
         }
+        
         if (scores.length === 0) return "Sports: No games today for selected teams";
         return scores.join(' | ');
     } catch (e) {
@@ -201,17 +229,28 @@ async function startServer() {
 
   // Fetch RSS periodically
   async function fetchNews() {
+    let allNews: string[] = [];
     for (const feedUrl of appData.feeds) {
       try {
         const feed = await parser.parseURL(feedUrl);
-        const newsItem = feed.items[0];
-        if (newsItem) {
-          latestNews = `${newsItem.title}`;
-          io.emit("news-update", { title: newsItem.title, image: newsItem.enclosure?.url || "" });
+        // Get top 3 items from each feed
+        const items = feed.items.slice(0, 3);
+        items.forEach(item => {
+            if (item.title) {
+                allNews.push(`${feed.title ? feed.title + ': ' : ''}${item.title}`);
+            }
+        });
+        
+        if (feed.items[0]) {
+            io.emit("news-update", { title: feed.items[0].title, image: feed.items[0].enclosure?.url || "" });
         }
       } catch (error) {
         console.error(`Error fetching RSS ${feedUrl}:`, error);
       }
+    }
+    
+    if (allNews.length > 0) {
+        latestNews = allNews.join(' | ');
     }
   }
 
@@ -301,6 +340,10 @@ async function startServer() {
       io.emit("request-pair-bluetooth", data);
       io.emit("connection-status", { type: 'bluetooth', status: 'pairing', message: `Pairing with ${data.device}...` });
     });
+    socket.on("enable-bt-pan", () => {
+      io.emit("request-enable-bt-pan");
+      socket.emit("status-update", { type: "info", message: "Enabling Bluetooth Hotspot..." });
+    });
     socket.on("toggle-bt-config", (enabled) => {
       io.emit("toggle-bt-config", enabled);
     });
@@ -352,6 +395,7 @@ async function startServer() {
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     fetchNews();
+    processRotation(); // Start rotation loop automatically
   });
 }
 
