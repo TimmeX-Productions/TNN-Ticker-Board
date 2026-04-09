@@ -115,14 +115,51 @@ def load_image(url):
 
 import re
 
+inline_image_cache = {}
+
+def get_inline_image(url, target_height):
+    if url in inline_image_cache:
+        return inline_image_cache[url]
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=3) as response:
+            img = Image.open(response)
+            if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                bg = Image.new('RGB', img.size, (0, 0, 0))
+                bg.paste(img, mask=img.convert('RGBA').split()[3])
+                img = bg
+            else:
+                img = img.convert('RGB')
+            
+            aspect = img.width / img.height
+            target_width = int(target_height * aspect)
+            if target_width < 1: target_width = 1
+            img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            inline_image_cache[url] = img
+            return img
+    except Exception as e:
+        print(f"Error loading inline image {url}: {e}")
+        inline_image_cache[url] = None
+        return None
+
 def get_colored_text_width(font, text):
-    clean_text = re.sub(r'\{.\}', '', text)
+    clean_text = re.sub(r'\{[rgbcwd]\}', '', text)
+    img_tags = re.findall(r'\{img:(.*?)\}', clean_text)
+    clean_text = re.sub(r'\{img:.*?\}', '', clean_text)
+    
+    width = 0
     if hasattr(font, 'CharacterWidth'):
-        return sum([font.CharacterWidth(ord(c)) for c in clean_text])
-    return len(clean_text) * 7
+        width = sum([font.CharacterWidth(ord(c)) for c in clean_text])
+    else:
+        width = len(clean_text) * 7
+        
+    font_height = font.height if hasattr(font, 'height') else 13
+    width += len(img_tags) * (font_height + 2)
+    
+    return width
 
 def draw_colored_text(canvas, font, x, y, default_color, text):
-    parts = re.split(r'(\{.\})', text)
+    parts = re.split(r'(\{.*?\})', text)
     current_color = default_color
     current_x = x
     
@@ -132,12 +169,23 @@ def draw_colored_text(canvas, font, x, y, default_color, text):
         '{b}': graphics.Color(0, 100, 255),
         '{y}': graphics.Color(255, 255, 0),
         '{w}': graphics.Color(255, 255, 255),
+        '{c}': graphics.Color(0, 255, 255),
         '{d}': default_color
     }
+    
+    font_height = font.height if hasattr(font, 'height') else 13
     
     for part in parts:
         if part in colors:
             current_color = colors[part]
+        elif part.startswith('{img:') and part.endswith('}'):
+            url = part[5:-1]
+            img = get_inline_image(url, font_height)
+            if img:
+                img_y = y - font_height + 2
+                if img_y < 0: img_y = 0
+                canvas.SetImage(img, current_x, img_y)
+                current_x += img.width + 2
         elif part:
             len_drawn = graphics.DrawText(canvas, font, current_x, y, current_color, part)
             current_x += len_drawn

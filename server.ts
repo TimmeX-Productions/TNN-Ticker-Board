@@ -179,7 +179,13 @@ async function getSportsData(teams: string, leagues: any) {
                 const homeColor = isStarted ? (homeScore > awayScore ? '{g}' : (homeScore < awayScore ? '{r}' : '{w}')) : '{w}';
                 const awayColor = isStarted ? (awayScore > homeScore ? '{g}' : (awayScore < homeScore ? '{r}' : '{w}')) : '{w}';
                 
-                return `{y}[${e._prefix}]{d} ${awayColor}${away.team.abbreviation} ${away.score}{d} @ ${homeColor}${home.team.abbreviation} ${home.score}{d} ({y}${status}{d})`;
+                const homeLogoUrl = home.team.logo || '';
+                const awayLogoUrl = away.team.logo || '';
+                
+                const homeLogo = homeLogoUrl ? `{img:${homeLogoUrl}${homeLogoUrl.includes('?') ? '&' : '?'}w=24&h=24}` : '';
+                const awayLogo = awayLogoUrl ? `{img:${awayLogoUrl}${awayLogoUrl.includes('?') ? '&' : '?'}w=24&h=24}` : '';
+                
+                return `{y}[${e._prefix}]{d} ${awayLogo}${awayColor}${away.team.abbreviation} ${away.score}{d} @ ${homeLogo}${homeColor}${home.team.abbreviation} ${home.score}{d} ({y}${status}{d})`;
             } catch (err) {
                 return null;
             }
