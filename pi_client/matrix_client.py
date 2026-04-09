@@ -14,9 +14,10 @@ from PIL import Image
 try:
     from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
     HAS_MATRIX = True
-except ImportError:
-    print("WARNING: rgbmatrix not installed. Running in MOCK mode.")
+    MATRIX_ERROR = ""
+except ImportError as e:
     HAS_MATRIX = False
+    MATRIX_ERROR = str(e)
 
 # --- Configuration ---
 SERVER_URL = 'http://127.0.0.1:3000' 
@@ -31,6 +32,8 @@ matrix = None
 canvas = None
 current_image = None
 last_image_url = ""
+font_loaded = False
+font = None
 
 settings = {
     "hardware": {
@@ -89,6 +92,8 @@ def init_matrix():
         canvas = matrix.CreateFrameCanvas()
     except Exception as e:
         print(f"Matrix init failed: {e}")
+        if sio.connected:
+            sio.emit("client-error", f"Matrix Init Failed: {e}")
 
 def load_image(url):
     global current_image, last_image_url
@@ -109,7 +114,7 @@ def load_image(url):
         last_image_url = ""
 
 def draw_loop():
-    global canvas, current_message, current_news, current_image
+    global canvas, current_message, current_news, current_image, font_loaded, font
     
     if not HAS_MATRIX:
         print("Running in MOCK mode. Draw loop disabled.")
@@ -125,8 +130,10 @@ def draw_loop():
         
     try:
         font.LoadFont(font_path)
+        font_loaded = True
     except Exception as e:
         print(f"Failed to load font {font_path}: {e}")
+        font_loaded = False
     
     if not canvas:
         print("Canvas not initialized. Exiting draw loop.")
@@ -157,7 +164,7 @@ def draw_loop():
             if not display_text and not image_url:
                 display_text = "Waiting for messages..."
 
-            if display_text:
+            if display_text and font_loaded:
                 mode = settings.get("mode", "scroll")
                 text_width = sum([font.CharacterWidth(ord(c)) for c in display_text]) if hasattr(font, 'CharacterWidth') else len(display_text) * 7
                 
@@ -197,19 +204,17 @@ def get_system_status():
         net = psutil.net_if_stats()
         addrs = psutil.net_if_addrs()
         
-        if "wlan0" in net and net["wlan0"].is_up:
-            network = "Connected (wlan0)"
-            if "wlan0" in addrs:
-                for addr in addrs["wlan0"]:
-                    if addr.family == socket.AF_INET:
+        for iface, addr_list in addrs.items():
+            if iface == 'lo': continue
+            if iface in net and net[iface].is_up:
+                for addr in addr_list:
+                    if addr.family == socket.AF_INET and not addr.address.startswith("127."):
                         ip_address = addr.address
-        elif "eth0" in net and net["eth0"].is_up:
-            network = "Connected (eth0)"
-            if "eth0" in addrs:
-                for addr in addrs["eth0"]:
-                    if addr.family == socket.AF_INET:
-                        ip_address = addr.address
-    except:
+                        network = f"Connected ({iface})"
+                        break
+            if ip_address != "Unknown":
+                break
+    except Exception as e:
         pass
 
     bluetooth = "Unknown"
@@ -225,6 +230,13 @@ def background_tasks():
     while True:
         if sio.connected:
             try:
+                if not HAS_MATRIX:
+                    sio.emit("client-error", f"Matrix Library Missing: {MATRIX_ERROR}. Did Adafruit script fail?")
+                elif not canvas:
+                    sio.emit("client-error", "Matrix Canvas failed to initialize. Check hardware mapping/sudo.")
+                elif not font_loaded:
+                    sio.emit("client-error", "Font failed to load. Check fonts folder.")
+
                 sio.emit("system-status", get_system_status())
                 
                 cpu = psutil.cpu_percent()
@@ -344,7 +356,9 @@ def on_pair_bluetooth(data):
         mac = None
         for r in results:
             if data['device'] in r:
-                mac = r.split(' ')[1]
+                parts = r.split(' ')
+                if len(parts) > 1:
+                    mac = parts[1]
                 break
         if mac:
             subprocess.run(["bluetoothctl", "pair", mac], check=True)
@@ -364,11 +378,15 @@ def on_toggle_bt_config(enabled):
 
 @sio.on('request-reboot')
 def on_reboot():
-    subprocess.run(["sudo", "reboot"])
+    sio.emit("status-update", {"type": "info", "message": "Rebooting Pi..."})
+    time.sleep(1)
+    os.system("sudo reboot")
 
 @sio.on('request-shutdown')
 def on_shutdown():
-    subprocess.run(["sudo", "shutdown", "-h", "now"])
+    sio.emit("status-update", {"type": "info", "message": "Shutting down Pi..."})
+    time.sleep(1)
+    os.system("sudo shutdown -h now")
 
 if __name__ == '__main__':
     print("Initializing Matrix...")
