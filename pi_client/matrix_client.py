@@ -12,7 +12,8 @@ from PIL import Image, ImageDraw, ImageFont
 from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
 
 # --- Configuration ---
-SERVER_URL = 'http://YOUR_SERVER_IP:3000' # Change this to your server's IP
+# Defaulting to localhost so it works out-of-the-box on the Pi
+SERVER_URL = 'http://127.0.0.1:3000' 
 # ---------------------
 
 sio = socketio.Client()
@@ -213,17 +214,20 @@ def on_news_update(news):
 @sio.on('request-scan-wifi')
 def on_scan_wifi():
     try:
+        # Force a rescan first so we get fresh networks
+        subprocess.run(["nmcli", "dev", "wifi", "rescan"], timeout=5)
         results = subprocess.check_output(["nmcli", "-t", "-f", "SSID", "dev", "wifi"]).decode().split('\n')
         sio.emit("wifi-scan-results", list(set([r for r in results if r])))
     except Exception as e:
         print("WiFi scan failed:", e)
+        sio.emit("wifi-scan-results", [])
 
 @sio.on('request-scan-bluetooth')
 def on_scan_bluetooth():
     try:
         # Start discovery briefly
         subprocess.Popen(["bluetoothctl", "scan", "on"])
-        time.sleep(3) # Wait a bit for devices to populate
+        time.sleep(4) # Wait a bit for devices to populate
         subprocess.Popen(["bluetoothctl", "scan", "off"])
         
         results = subprocess.check_output(["bluetoothctl", "devices"]).decode().split('\n')
@@ -236,6 +240,7 @@ def on_scan_bluetooth():
         sio.emit("bluetooth-scan-results", list(set(devices)))
     except Exception as e:
         print("Bluetooth scan failed:", e)
+        sio.emit("bluetooth-scan-results", [])
 
 @sio.on('request-connect-wifi')
 def on_connect_wifi(data):
