@@ -205,18 +205,32 @@ def draw_loop():
             time.sleep(1)
             
     font = graphics.Font()
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_dir, "fonts", settings.get('font', '7x13.bdf'))
     
-    if not os.path.exists(font_path):
-        font_path = os.path.join(base_dir, "fonts", "7x13.bdf")
-        
-    if not os.path.exists(font_path):
-        print(f"Font not found at {font_path}. Attempting to download...")
+    # Try multiple possible font locations
+    possible_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts"),
+        os.path.join(os.getcwd(), "fonts")
+    ]
+    
+    font_name = settings.get('font', '7x13.bdf')
+    font_path = None
+    
+    for p in possible_paths:
+        test_path = os.path.join(p, font_name)
+        if os.path.exists(test_path):
+            font_path = test_path
+            break
+            
+    if not font_path:
+        # Fallback to downloading in the script's directory
+        font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+        font_path = os.path.join(font_dir, "7x13.bdf")
+        print(f"Font not found. Attempting to download to {font_path}...")
         if sio.connected:
             sio.emit("pi-log", {"level": "info", "message": "Font missing. Downloading 7x13.bdf..."})
         try:
-            os.makedirs(os.path.dirname(font_path), exist_ok=True)
+            os.makedirs(font_dir, exist_ok=True)
             urllib.request.urlretrieve("https://raw.githubusercontent.com/hzeller/rpi-rgb-led-matrix/master/fonts/7x13.bdf", font_path)
             print("Font downloaded successfully.")
         except Exception as e:
@@ -225,6 +239,8 @@ def draw_loop():
                 sio.emit("pi-log", {"level": "error", "message": f"Failed to download font: {e}"})
 
     try:
+        # The rgbmatrix library sometimes requires the path to be a byte string in older python versions, 
+        # but string in newer. We pass it as string, but if it fails we can try bytes.
         font.LoadFont(font_path)
         font_loaded = True
         print(f"Successfully loaded font: {font_path}")
