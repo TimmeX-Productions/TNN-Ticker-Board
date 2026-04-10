@@ -501,19 +501,22 @@ def on_pair_bluetooth(data):
             sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with {device_name} ({mac})..."})
             
             # Briefly scan to "see" the device
-            subprocess.run(["sudo", "bluetoothctl", "scan", "on"], capture_output=True, timeout=3)
+            subprocess.run(["sudo", "bluetoothctl", "scan", "on"], capture_output=True, timeout=5)
             
-            # Remove device first
-            subprocess.run(["sudo", "bluetoothctl", "remove", mac], capture_output=True)
+            # Trust first sometimes helps with "not available"
+            subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True)
             
             # Start pairing
             pair_res = subprocess.run(["sudo", "bluetoothctl", "pair", mac], capture_output=True, text=True)
             if pair_res.returncode != 0:
-                sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
-                sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure device is discoverable."})
-                return
+                # If it's already paired, that's fine
+                if "already exists" in pair_res.stderr.lower() or "already exists" in pair_res.stdout.lower():
+                    sio.emit("pi-log", {"level": "info", "message": "Device already paired."})
+                else:
+                    sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
+                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure device is discoverable."})
+                    return
                 
-            subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True)
             sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {device_name}"})
         else:
             sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
@@ -554,8 +557,8 @@ def on_enable_bt_pan():
                 if nmcli_res.returncode != 0:
                     sio.emit("pi-log", {"level": "error", "message": f"nmcli up failed: {nmcli_res.stderr}"})
             else:
-                # Added ifname "*" to fix 'property is missing' error
-                nmcli_res = subprocess.run(["sudo", "nmcli", "connection", "add", "type", "bluetooth", "ifname", "*", "autoconnect", "yes", "bt-type", "nap", "ipv4.method", "shared", "ipv4.address", "10.0.0.1/24", "ipv6.method", "ignore", "con-name", "bt-pan"], capture_output=True, text=True)
+                # Use bnep0 as interface name for Bluetooth PAN
+                nmcli_res = subprocess.run(["sudo", "nmcli", "connection", "add", "type", "bluetooth", "ifname", "bnep0", "autoconnect", "yes", "bt-type", "nap", "ipv4.method", "shared", "ipv4.address", "10.0.0.1/24", "ipv6.method", "ignore", "con-name", "bt-pan"], capture_output=True, text=True)
                 if nmcli_res.returncode != 0:
                     sio.emit("pi-log", {"level": "error", "message": f"nmcli add failed: {nmcli_res.stderr}"})
             sio.emit("status-update", {"type": "success", "message": "Bluetooth Hotspot Enabled! Connect phone via Bluetooth, then open http://10.0.0.1:3000"})
