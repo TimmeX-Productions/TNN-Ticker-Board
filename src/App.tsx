@@ -143,18 +143,21 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-orange-500/30 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#001224] text-[#f1faee] font-sans selection:bg-[#e63946]/30 flex flex-col md:flex-row">
       <Toaster theme="dark" />
       
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col shrink-0">
-        <div className="p-6 border-b border-zinc-800">
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-            <MonitorPlay className="w-6 h-6 text-orange-500" />
-            LED Matrix
+      <aside className="w-full md:w-64 bg-[#001f3d] border-r border-[#1d3557] flex flex-col shrink-0">
+        <div className="p-6 border-b border-[#1d3557] bg-[#e63946]/10">
+          <h1 className="text-2xl font-black tracking-tighter text-white flex flex-col gap-1 uppercase italic">
+            <span className="text-[#e63946] flex items-center gap-2">
+              <MonitorPlay className="w-6 h-6" />
+              Timmy
+            </span>
+            <span className="text-white">News Network</span>
           </h1>
           <div className="mt-4 flex items-center gap-2">
-            <Badge variant={status === 'Connected' ? 'default' : 'destructive'} className={status === 'Connected' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20' : ''}>
+            <Badge variant={status === 'Connected' ? 'default' : 'destructive'} className={status === 'Connected' ? 'bg-[#457b9d]/20 text-[#a8dadc] border-[#457b9d]/30' : 'bg-[#e63946]/20 text-[#e63946] border-[#e63946]/30'}>
               {status}
             </Badge>
           </div>
@@ -165,10 +168,10 @@ export default function App() {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors text-sm font-medium ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-none transition-all text-sm font-bold uppercase tracking-wider border-l-4 ${
                 activeTab === item.id 
-                  ? 'bg-orange-500/10 text-orange-500' 
-                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100'
+                  ? 'bg-[#e63946]/20 text-white border-[#e63946]' 
+                  : 'text-[#a8dadc] border-transparent hover:bg-[#1d3557] hover:text-white'
               }`}
             >
               {item.icon}
@@ -177,32 +180,40 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 text-xs text-zinc-500 space-y-2">
+        <div className="p-4 border-t border-[#1d3557] text-xs text-[#a8dadc]/60 space-y-2 bg-[#001224]/50">
           <div className="flex items-center justify-between">
-            <span>CPU Usage</span>
-            <span className="text-zinc-300">{health.cpu}%</span>
+            <span className="font-bold uppercase tracking-tighter">CPU Load</span>
+            <span className="text-white font-mono">{health.cpu}%</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Temperature</span>
-            <span className="text-zinc-300">{health.temp}°C</span>
+            <span className="font-bold uppercase tracking-tighter">Temp</span>
+            <span className="text-white font-mono">{health.temp}°C</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>IP Address</span>
-            <span className="text-zinc-300">{systemStatus.ip_address}</span>
+            <span className="font-bold uppercase tracking-tighter">IP</span>
+            <span className="text-white font-mono">{systemStatus.ip_address}</span>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto h-screen">
+      <main className="flex-1 p-6 md:p-8 overflow-y-auto h-screen bg-[#001224]">
         <div className="max-w-6xl mx-auto space-y-8">
           
+          {/* Breaking News Ticker Style Header */}
+          <div className="bg-[#e63946] text-white p-2 flex items-center gap-4 overflow-hidden whitespace-nowrap shadow-lg">
+            <div className="bg-white text-[#e63946] px-3 py-1 font-black italic uppercase text-sm shrink-0">Breaking</div>
+            <div className="animate-marquee inline-block font-bold uppercase tracking-widest text-sm">
+              {message || "Welcome to Timmy News Network - Your False News Is Waiting - System Online - Matrix Ready"}
+            </div>
+          </div>
+
           {/* Always show Live Preview at the top */}
-          <Card className="bg-zinc-950 border-zinc-800 shadow-2xl overflow-hidden">
-            <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 py-4">
-              <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                <MonitorPlay className="w-5 h-5 text-orange-500" />
-                Live Preview
+          <Card className="bg-[#001f3d] border-[#1d3557] shadow-2xl overflow-hidden rounded-none border-t-4 border-t-[#e63946]">
+            <CardHeader className="border-b border-[#1d3557] bg-[#001224]/50 py-4">
+              <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                <MonitorPlay className="w-5 h-5 text-[#e63946]" />
+                Live Broadcast
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -214,47 +225,47 @@ export default function App() {
           {activeTab === 'live' && (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               <div className="xl:col-span-2 space-y-8">
-                <Card className="bg-zinc-950 border-zinc-800">
+                <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                   <CardContent className="p-6 space-y-8">
                     {/* Message Input */}
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <Label className="text-zinc-300 font-semibold">Custom Message</Label>
+                        <Label className="text-[#a8dadc] font-black uppercase italic tracking-tighter">Custom Broadcast</Label>
                         <Button 
                           onClick={() => socket.emit(rotationActive ? 'stop-rotation' : 'start-rotation')} 
                           variant={rotationActive ? "destructive" : "default"} 
-                          className={`h-8 px-3 text-xs ${!rotationActive ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                          className={`h-8 px-3 text-xs font-bold uppercase tracking-widest ${!rotationActive ? "bg-[#457b9d] hover:bg-[#1d3557] text-white" : "bg-[#e63946] hover:bg-[#c1121f]"}`}
                         >
-                          {rotationActive ? "Stop Module Rotation" : "Start Module Rotation"}
+                          {rotationActive ? "Stop Rotation" : "Start Rotation"}
                         </Button>
                       </div>
                       <form onSubmit={sendMessage} className="flex gap-3">
                         <Input 
                           value={message} 
                           onChange={(e) => setMessage(e.target.value)} 
-                          placeholder="Type a message to display..." 
-                          className="bg-zinc-900 border-zinc-800 text-zinc-100 h-12 text-lg focus-visible:ring-orange-500"
+                          placeholder="Enter breaking news..." 
+                          className="bg-[#001224] border-[#1d3557] text-white h-12 text-lg focus-visible:ring-[#e63946] rounded-none"
                         />
-                        <Button type="submit" className="h-12 px-6 bg-orange-600 hover:bg-orange-700 text-white">
-                          <Send className="w-4 h-4 mr-2" /> Send
+                        <Button type="submit" className="h-12 px-6 bg-[#e63946] hover:bg-[#c1121f] text-white rounded-none font-bold uppercase italic">
+                          <Send className="w-4 h-4 mr-2" /> Broadcast
                         </Button>
-                        <Button type="button" variant="outline" onClick={clearMatrix} className="h-12 border-zinc-700 hover:bg-zinc-800">
+                        <Button type="button" variant="outline" onClick={clearMatrix} className="h-12 border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none font-bold uppercase">
                           Clear
                         </Button>
                       </form>
                     </div>
 
-                    <Separator className="bg-zinc-800" />
+                    <Separator className="bg-[#1d3557]" />
 
                     {/* Advanced Controls */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="space-y-4">
-                        <Label className="text-zinc-300 flex items-center gap-2"><Type className="w-4 h-4"/> Font & Size</Label>
+                        <Label className="text-[#a8dadc] flex items-center gap-2 font-bold uppercase text-xs tracking-widest"><Type className="w-4 h-4 text-[#e63946]"/> Typography</Label>
                         <Select value={settings.font || '7x13.bdf'} onValueChange={(v) => sendSettings({...settings, font: v})}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                          <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                             <SelectItem value="4x6.bdf">4x6 (Tiny)</SelectItem>
                             <SelectItem value="5x8.bdf">5x8 (Small)</SelectItem>
                             <SelectItem value="6x10.bdf">6x10 (Medium-Small)</SelectItem>
@@ -266,14 +277,14 @@ export default function App() {
                         </Select>
                       </div>
                       <div className="space-y-4">
-                        <Label className="text-zinc-300 flex items-center gap-2"><MonitorPlay className="w-4 h-4"/> Transition Effect</Label>
+                        <Label className="text-[#a8dadc] flex items-center gap-2 font-bold uppercase text-xs tracking-widest"><MonitorPlay className="w-4 h-4 text-[#e63946]"/> Animation</Label>
                         <Select value={settings.effect || 'scroll'} onValueChange={(v) => sendSettings({...settings, effect: v})}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                          <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                             <SelectItem value="scroll">Smooth Scroll</SelectItem>
-                            <SelectItem value="static">Static (No Movement)</SelectItem>
+                            <SelectItem value="static">Static</SelectItem>
                             <SelectItem value="bounce">Bounce</SelectItem>
                             <SelectItem value="flash">Flash</SelectItem>
                             <SelectItem value="typewriter">Typewriter</SelectItem>
@@ -281,32 +292,33 @@ export default function App() {
                         </Select>
                       </div>
                       <div className="space-y-4">
-                        <Label className="text-zinc-300 flex items-center gap-2"><Clock className="w-4 h-4"/> Night Mode Schedule</Label>
-                        <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-md p-2">
+                        <Label className="text-[#a8dadc] flex items-center gap-2 font-bold uppercase text-xs tracking-widest"><Clock className="w-4 h-4 text-[#e63946]"/> Night Mode</Label>
+                        <div className="flex items-center space-x-2 bg-[#001224] border border-[#1d3557] rounded-none p-2">
                           <Switch 
                             id="schedule-toggle"
                             checked={settings.schedule?.enabled || false}
                             onCheckedChange={(c) => sendSettings({...settings, schedule: {...(settings.schedule || {}), enabled: c}})}
+                            className="data-[state=checked]:bg-[#e63946]"
                           />
-                          <Label htmlFor="schedule-toggle" className="text-sm text-zinc-300 cursor-pointer">Auto-Dim at Night</Label>
+                          <Label htmlFor="schedule-toggle" className="text-xs font-bold uppercase text-[#a8dadc] cursor-pointer">Auto-Dim</Label>
                         </div>
                       </div>
                     </div>
 
-                    <Separator className="bg-zinc-800" />
+                    <Separator className="bg-[#1d3557]" />
 
                     {/* Quick Controls */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <Label className="text-zinc-300">Brightness (Day)</Label>
-                          <span className="text-zinc-500 text-sm">{settings.schedule?.enabled ? settings.schedule?.day_brightness : settings.brightness ?? 100}%</span>
+                          <Label className="text-[#a8dadc] font-bold uppercase text-xs tracking-widest">Brightness</Label>
+                          <span className="text-white font-mono text-sm">{settings.schedule?.enabled ? settings.schedule?.day_brightness : settings.brightness ?? 100}%</span>
                         </div>
                         <Slider 
-                          value={settings.schedule?.enabled ? (settings.schedule?.day_brightness ?? 100) : (settings.brightness ?? 100)} 
+                          value={[settings.schedule?.enabled ? (settings.schedule?.day_brightness ?? 100) : (settings.brightness ?? 100)]} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            const val = Array.isArray(v) ? v[0] : v;
+                            const val = v[0];
                             if (settings.schedule?.enabled) {
                               sendSettings({...settings, schedule: {...settings.schedule, day_brightness: val}});
                             } else {
@@ -314,51 +326,51 @@ export default function App() {
                               sendSettings({...settings, brightness: val});
                             }
                           }}
-                          className="[&_[role=slider]]:bg-orange-500"
+                          className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
                         />
                       </div>
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <Label className="text-zinc-300">Animation Speed</Label>
-                          <span className="text-zinc-500 text-sm">{settings.speed ?? 50}</span>
+                          <Label className="text-[#a8dadc] font-bold uppercase text-xs tracking-widest">Speed</Label>
+                          <span className="text-white font-mono text-sm">{settings.speed ?? 50}</span>
                         </div>
                         <Slider 
-                          value={settings.speed ?? 50} 
+                          value={[settings.speed ?? 50]} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            const val = Array.isArray(v) ? v[0] : v;
+                            const val = v[0];
                             setSettings({...settings, speed: val});
                             sendSettings({...settings, speed: val});
                           }}
-                          className="[&_[role=slider]]:bg-orange-500"
+                          className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
                         />
                       </div>
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <Label className="text-zinc-300">Font Position (Up/Down)</Label>
-                          <span className="text-zinc-500 text-sm">{settings.font_y_offset ?? 0}px</span>
+                          <Label className="text-[#a8dadc] font-bold uppercase text-xs tracking-widest">Y-Offset</Label>
+                          <span className="text-white font-mono text-sm">{settings.font_y_offset ?? 0}px</span>
                         </div>
                         <Slider 
-                          value={settings.font_y_offset ?? 0} 
+                          value={[settings.font_y_offset ?? 0]} 
                           min={-32} max={32} 
                           onValueChange={(v) => {
-                            const val = Array.isArray(v) ? v[0] : v;
+                            const val = v[0];
                             setSettings({...settings, font_y_offset: val});
                             sendSettings({...settings, font_y_offset: val});
                           }}
-                          className="[&_[role=slider]]:bg-orange-500"
+                          className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-4 md:col-span-3">
-                      <Label className="text-zinc-300">Color</Label>
+                      <Label className="text-[#a8dadc] font-bold uppercase text-xs tracking-widest">Broadcast Color</Label>
                       <div className="flex gap-3">
                         <Input 
                           type="color" 
                           value={settings.color} 
                           onChange={(e) => sendSettings({...settings, color: e.target.value})} 
-                          className="h-10 w-20 p-1 bg-zinc-900 border-zinc-800 cursor-pointer" 
+                          className="h-10 w-20 p-1 bg-[#001224] border-[#1d3557] cursor-pointer rounded-none" 
                         />
                       </div>
                     </div>
@@ -368,11 +380,11 @@ export default function App() {
 
               <div className="space-y-8">
                 {/* Presets */}
-                <Card className="bg-zinc-950 border-zinc-800">
+                <Card className="bg-[#001f3d] border-[#1d3557] rounded-none border-t-4 border-t-[#457b9d]">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                      <Save className="w-4 h-4 text-orange-500" />
-                      Presets
+                    <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                      <Save className="w-4 h-4 text-[#457b9d]" />
+                      Archives
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -380,16 +392,16 @@ export default function App() {
                       <Input 
                         value={presetName} 
                         onChange={(e) => setPresetName(e.target.value)} 
-                        placeholder="Preset name" 
-                        className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                        placeholder="Archive name" 
+                        className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                       />
-                      <Button onClick={() => socket.emit('save-preset', { name: presetName, settings })} className="bg-zinc-800 hover:bg-zinc-700 text-white">Save</Button>
+                      <Button onClick={() => socket.emit('save-preset', { name: presetName, settings })} className="bg-[#457b9d] hover:bg-[#1d3557] text-white rounded-none font-bold uppercase">Save</Button>
                     </div>
                     <Select onValueChange={(v) => socket.emit('load-preset', v)}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                        <SelectValue placeholder="Load a preset..." />
+                      <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
+                        <SelectValue placeholder="Load Archive..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                         {presets.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -401,30 +413,30 @@ export default function App() {
 
           {activeTab === 'modules' && (
             <div className="space-y-6">
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none border-t-4 border-t-[#e63946]">
                 <CardHeader>
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Blocks className="w-5 h-5 text-orange-500" />
-                    Module Rotation Order
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Blocks className="w-5 h-5 text-[#e63946]" />
+                    Broadcast Rotation
                   </CardTitle>
-                  <CardDescription className="text-zinc-400">Drag or use arrows to set the order modules appear in rotation, and set how long each module displays.</CardDescription>
+                  <CardDescription className="text-[#a8dadc]/60 font-bold uppercase text-[10px] tracking-widest">Set the order and duration for each news segment.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col gap-3">
                     {(settings.plugins as any).module_order?.map((mod: string, idx: number) => (
-                      <div key={`${mod}-${idx}`} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-md px-4 py-2">
+                      <div key={`${mod}-${idx}`} className="flex items-center justify-between bg-[#001224] border border-[#1d3557] rounded-none px-4 py-2">
                         <div className="flex items-center gap-3">
-                          <span className="text-zinc-300 capitalize font-medium w-24">{mod}</span>
+                          <span className="text-white capitalize font-black italic w-24 tracking-tighter">{mod}</span>
                           <div className="flex items-center gap-2">
-                            <Label className="text-xs text-zinc-500">Duration:</Label>
+                            <Label className="text-[10px] font-bold uppercase text-[#a8dadc]/50">Duration:</Label>
                             <Input 
                               type="number" 
                               min="1"
-                              className="w-20 h-8 bg-zinc-950 border-zinc-800 text-zinc-100" 
+                              className="w-20 h-8 bg-[#001f3d] border-[#1d3557] text-white rounded-none font-mono" 
                               value={(settings.plugins as any)[mod]?.duration || 15}
                               onChange={(e) => updatePlugin(mod, 'duration', e.target.value)}
                             />
-                            <span className="text-xs text-zinc-500">sec (e.g. 60 = 1m)</span>
+                            <span className="text-[10px] font-bold uppercase text-[#a8dadc]/50">sec</span>
                           </div>
                         </div>
                         <div className="flex gap-1">
@@ -435,7 +447,7 @@ export default function App() {
                               [newOrder[idx], newOrder[idx - 1]] = [newOrder[idx - 1], newOrder[idx]];
                               sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
                             }}
-                            className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded disabled:opacity-30"
+                            className="p-1 text-[#a8dadc] hover:text-[#e63946] hover:bg-[#1d3557] rounded-none disabled:opacity-30"
                           >
                             ▲
                           </button>
@@ -446,7 +458,7 @@ export default function App() {
                               [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
                               sendSettings({ ...settings, plugins: { ...settings.plugins, module_order: newOrder } as any });
                             }}
-                            className="p-1 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded disabled:opacity-30"
+                            className="p-1 text-[#a8dadc] hover:text-[#e63946] hover:bg-[#1d3557] rounded-none disabled:opacity-30"
                           >
                             ▼
                           </button>
@@ -459,173 +471,164 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {/* Time Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Clock className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Clock className="w-5 h-5 text-[#e63946]" />
                     Time
                   </CardTitle>
-                  <Switch checked={settings.plugins?.time?.enabled} onCheckedChange={(c) => updatePlugin('time', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.time?.enabled} onCheckedChange={(c) => updatePlugin('time', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Format</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Format</Label>
                     <Select value={settings.plugins?.time?.format || '12h'} onValueChange={(v) => updatePlugin('time', 'format', v)}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                      <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                         <SelectItem value="12h">12-Hour (AM/PM)</SelectItem>
                         <SelectItem value="24h">24-Hour</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Timezone</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Timezone</Label>
                     <Input 
                       placeholder="e.g. America/New_York" 
                       value={settings.plugins?.time?.timezone || ''} 
                       onChange={(e) => updatePlugin('time', 'timezone', e.target.value)}
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600"
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none placeholder:text-[#a8dadc]/30"
                     />
-                    <p className="text-xs text-zinc-500">Leave blank for local Pi time.</p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Weather Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Cloud className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Cloud className="w-5 h-5 text-[#e63946]" />
                     Weather
                   </CardTitle>
-                  <Switch checked={settings.plugins?.weather?.enabled} onCheckedChange={(c) => updatePlugin('weather', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.weather?.enabled} onCheckedChange={(c) => updatePlugin('weather', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Location (City, Country)</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Location</Label>
                     <Input 
                       value={settings.plugins?.weather?.location || ''} 
                       onChange={(e) => updatePlugin('weather', 'location', e.target.value)} 
                       placeholder="e.g. New York, US" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">OpenWeather API Key</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">API Key</Label>
                     <Input 
                       type="password"
                       value={settings.plugins?.weather?.api_key || ''} 
                       onChange={(e) => updatePlugin('weather', 'api_key', e.target.value)} 
-                      placeholder="API Key" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                      placeholder="OpenWeather Key" 
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                     />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Sports Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Trophy className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Trophy className="w-5 h-5 text-[#e63946]" />
                     Sports
                   </CardTitle>
-                  <Switch checked={settings.plugins?.sports?.enabled} onCheckedChange={(c) => updatePlugin('sports', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.sports?.enabled} onCheckedChange={(c) => updatePlugin('sports', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Active Leagues</Label>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'NCAAW', 'NCAABS', 'NCAAH', 'WNBA', 'MLS', 'EPL', 'UCL', 'LIGA'].map(league => (
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Leagues</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'].map(league => (
                         <div key={league} className="flex items-center space-x-2">
                           <Switch 
                             id={`league-${league}`}
-                            checked={settings.plugins?.sports?.leagues?.[league] === true || (['NFL', 'NBA', 'MLB', 'NHL'].includes(league) && settings.plugins?.sports?.leagues?.[league] !== false)} 
+                            checked={settings.plugins?.sports?.leagues?.[league] !== false} 
                             onCheckedChange={(c) => {
                               const currentLeagues = settings.plugins?.sports?.leagues || {};
                               updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });
                             }} 
+                            className="data-[state=checked]:bg-[#e63946] scale-75"
                           />
-                          <Label htmlFor={`league-${league}`} className="text-xs text-zinc-300">{league}</Label>
+                          <Label htmlFor={`league-${league}`} className="text-[10px] font-bold text-[#a8dadc]">{league}</Label>
                         </div>
                       ))}
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-400">Favorite Teams (Comma separated)</Label>
-                    <Input 
-                      value={settings.plugins?.sports?.teams || ''} 
-                      onChange={(e) => updatePlugin('sports', 'teams', e.target.value)} 
-                      placeholder="e.g. LAL, NYY, DAL (Leave blank for all)" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
-                    />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Stocks Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <TrendingUp className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <TrendingUp className="w-5 h-5 text-[#e63946]" />
                     Stocks
                   </CardTitle>
-                  <Switch checked={settings.plugins?.stocks?.enabled} onCheckedChange={(c) => updatePlugin('stocks', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.stocks?.enabled} onCheckedChange={(c) => updatePlugin('stocks', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Symbols (Comma separated)</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Tickers</Label>
                     <Input 
                       value={settings.plugins?.stocks?.symbols || ''} 
                       onChange={(e) => updatePlugin('stocks', 'symbols', e.target.value)} 
-                      placeholder="e.g. AAPL, MSFT, TSLA" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                      placeholder="AAPL, MSFT, TSLA" 
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                     />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Crypto Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Bitcoin className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Bitcoin className="w-5 h-5 text-[#e63946]" />
                     Crypto
                   </CardTitle>
-                  <Switch checked={settings.plugins?.crypto?.enabled} onCheckedChange={(c) => updatePlugin('crypto', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.crypto?.enabled} onCheckedChange={(c) => updatePlugin('crypto', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Symbols (Comma separated)</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Coins</Label>
                     <Input 
                       value={settings.plugins?.crypto?.symbols || ''} 
                       onChange={(e) => updatePlugin('crypto', 'symbols', e.target.value)} 
-                      placeholder="e.g. BTC, ETH, DOGE" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                      placeholder="BTC, ETH, DOGE" 
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                     />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Entertainment Module */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Gamepad2 className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Gamepad2 className="w-5 h-5 text-[#e63946]" />
                     Entertainment
                   </CardTitle>
-                  <Switch checked={settings.plugins?.entertainment?.enabled} onCheckedChange={(c) => updatePlugin('entertainment', 'enabled', c)} />
+                  <Switch checked={settings.plugins?.entertainment?.enabled} onCheckedChange={(c) => updatePlugin('entertainment', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-zinc-400">Mode</Label>
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Mode</Label>
                     <Select value={settings.plugins?.entertainment?.mode || 'game_of_life'} onValueChange={(v) => updatePlugin('entertainment', 'mode', v)}>
-                      <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                      <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                         <SelectItem value="game_of_life">Conway's Game of Life</SelectItem>
                         <SelectItem value="matrix_rain">Matrix Rain</SelectItem>
                         <SelectItem value="pong">Pong Clock</SelectItem>
@@ -636,10 +639,10 @@ export default function App() {
               </Card>
 
               {/* RSS Feeds */}
-              <Card className="bg-zinc-950 border-zinc-800 flex flex-col h-[300px]">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none flex flex-col h-[300px]">
                 <CardHeader className="pb-3 shrink-0">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Rss className="w-5 h-5 text-orange-500" />
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Rss className="w-5 h-5 text-[#e63946]" />
                     News Feeds
                   </CardTitle>
                 </CardHeader>
@@ -649,24 +652,21 @@ export default function App() {
                       type="url" 
                       value={newFeed} 
                       onChange={(e) => setNewFeed(e.target.value)} 
-                      placeholder="Add RSS URL" 
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100"
+                      placeholder="RSS URL" 
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
                     />
-                    <Button type="submit" className="bg-zinc-800 hover:bg-zinc-700 text-white">Add</Button>
+                    <Button type="submit" className="bg-[#e63946] hover:bg-[#c1121f] text-white rounded-none font-bold uppercase">Add</Button>
                   </form>
-                  <ScrollArea className="flex-1 border border-zinc-800 rounded-md bg-zinc-900/30 p-2">
+                  <ScrollArea className="flex-1 border border-[#1d3557] rounded-none bg-[#001224]/30 p-2">
                     <ul className="space-y-2">
                       {feeds.map((f, index) => (
-                        <li key={`${f}-${index}`} className="flex justify-between items-center bg-zinc-900 p-2 rounded text-sm border border-zinc-800 group">
-                          <span className="truncate pr-4 text-zinc-300">{f}</span>
-                          <Button variant="ghost" size="icon" onClick={() => socket.emit('remove-feed', f)} className="h-6 w-6 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <li key={`${f}-${index}`} className="flex justify-between items-center bg-[#001224] p-2 rounded-none text-xs border border-[#1d3557] group">
+                          <span className="truncate pr-4 text-[#a8dadc] font-mono">{f}</span>
+                          <Button variant="ghost" size="icon" onClick={() => socket.emit('remove-feed', f)} className="h-6 w-6 text-[#a8dadc] hover:text-[#e63946] hover:bg-[#e63946]/10 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </li>
                       ))}
-                      {feeds.length === 0 && (
-                        <div className="text-center text-zinc-500 py-8 text-sm">No feeds added.</div>
-                      )}
                     </ul>
                   </ScrollArea>
                 </CardContent>
@@ -682,11 +682,11 @@ export default function App() {
           {activeTab === 'system' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Network & System */}
-              <Card className="bg-zinc-950 border-zinc-800">
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none border-t-4 border-t-[#e63946]">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Settings2 className="w-5 h-5 text-orange-500" />
-                    System Management
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Settings2 className="w-5 h-5 text-[#e63946]" />
+                    Network Control
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -694,20 +694,20 @@ export default function App() {
                   {/* Wi-Fi */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                        <Wifi className="w-4 h-4" /> Wi-Fi
+                      <span className="text-xs font-black uppercase tracking-widest text-[#a8dadc] flex items-center gap-2">
+                        <Wifi className="w-4 h-4 text-[#e63946]" /> Wi-Fi Status
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-zinc-500">{systemStatus.ip_address}</span>
-                        <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800">{systemStatus.network}</Badge>
+                        <span className="text-xs font-mono text-[#a8dadc]">{systemStatus.ip_address}</span>
+                        <Badge variant="outline" className="bg-[#001224] text-[#a8dadc] border-[#1d3557] uppercase font-bold text-[10px]">{systemStatus.network}</Badge>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Select onValueChange={setSelectedWifi}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100 flex-1">
+                        <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                           <SelectValue placeholder="Select Network" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                           {wifiNetworks.length > 0 ? (
                             wifiNetworks.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)
                           ) : (
@@ -715,47 +715,47 @@ export default function App() {
                           )}
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" onClick={() => socket.emit('scan-wifi')} className="border-zinc-800 hover:bg-zinc-800">Scan</Button>
+                      <Button variant="outline" onClick={() => socket.emit('scan-wifi')} className="border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none font-bold uppercase">Scan</Button>
                     </div>
                     <div className="flex gap-2">
-                      <Input type="password" placeholder="Password" value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} className="bg-zinc-900 border-zinc-800 text-zinc-100 flex-1" />
-                      <Button onClick={() => { setWifiStatus('connecting'); socket.emit('connect-wifi', { ssid: selectedWifi, password: wifiPassword }); }} className="bg-zinc-800 hover:bg-zinc-700 text-white">Connect</Button>
+                      <Input type="password" placeholder="Password" value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} className="bg-[#001224] border-[#1d3557] text-white flex-1 rounded-none" />
+                      <Button onClick={() => { setWifiStatus('connecting'); socket.emit('connect-wifi', { ssid: selectedWifi, password: wifiPassword }); }} className="bg-[#e63946] hover:bg-[#c1121f] text-white rounded-none font-bold uppercase">Connect</Button>
                     </div>
                     {wifiStatus !== 'idle' && (
-                        <div className={`text-xs p-2 rounded border ${wifiStatus === 'success' ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' : wifiStatus === 'error' ? 'bg-red-950/30 border-red-900 text-red-400' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>
+                        <div className={`text-xs p-2 rounded-none border ${wifiStatus === 'success' ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' : wifiStatus === 'error' ? 'bg-red-950/30 border-red-900 text-red-400' : 'bg-[#001224] border-[#1d3557] text-[#a8dadc]'}`}>
                             {wifiStatus === 'connecting' ? 'Connecting...' : connectionMessage}
                         </div>
                     )}
                   </div>
 
-                  <Separator className="bg-zinc-800" />
+                  <Separator className="bg-[#1d3557]" />
                   
                   {/* Bluetooth */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                        <Bluetooth className="w-4 h-4" /> Bluetooth
+                      <span className="text-xs font-black uppercase tracking-widest text-[#a8dadc] flex items-center gap-2">
+                        <Bluetooth className="w-4 h-4 text-[#e63946]" /> Bluetooth Status
                       </span>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => socket.emit('enable-bt-pan')} className="h-6 text-xs border-zinc-800 hover:bg-zinc-800">Enable Hotspot</Button>
-                        <Badge variant="outline" className="bg-zinc-900 text-zinc-400 border-zinc-800">{systemStatus.bluetooth}</Badge>
+                        <Button variant="outline" size="sm" onClick={() => socket.emit('enable-bt-pan')} className="h-6 text-[10px] font-bold uppercase border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none">Hotspot</Button>
+                        <Badge variant="outline" className="bg-[#001224] text-[#a8dadc] border-[#1d3557] uppercase font-bold text-[10px]">{systemStatus.bluetooth}</Badge>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 border border-zinc-800 rounded-md bg-zinc-900/50">
+                    <div className="flex items-center justify-between p-3 border border-[#1d3557] rounded-none bg-[#001224]/50">
                       <div className="space-y-0.5">
-                        <Label className="text-zinc-300">Bluetooth Config Portal</Label>
-                        <p className="text-xs text-zinc-500">Allow phone to configure Wi-Fi</p>
+                        <Label className="text-xs font-bold uppercase text-[#a8dadc]">Config Portal</Label>
+                        <p className="text-[10px] text-[#a8dadc]/50 uppercase">Allow phone to configure Wi-Fi</p>
                       </div>
-                      <Switch checked={btConfigEnabled} onCheckedChange={(c) => { setBtConfigEnabled(c); socket.emit('toggle-bt-config', c); }} />
+                      <Switch checked={btConfigEnabled} onCheckedChange={(c) => { setBtConfigEnabled(c); socket.emit('toggle-bt-config', c); }} className="data-[state=checked]:bg-[#e63946]" />
                     </div>
 
                     <div className="flex gap-2">
                       <Select onValueChange={setSelectedBluetooth}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100 flex-1">
+                        <SelectTrigger className="bg-[#001224] border-[#1d3557] text-white rounded-none">
                           <SelectValue placeholder="Select Device" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-[#001f3d] border-[#1d3557] text-white">
                           {bluetoothDevices.length > 0 ? (
                             bluetoothDevices.map(d => <SelectItem key={d.mac} value={d.mac}>{d.name}</SelectItem>)
                           ) : (
@@ -763,9 +763,9 @@ export default function App() {
                           )}
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" onClick={() => socket.emit('scan-bluetooth')} className="border-zinc-800 hover:bg-zinc-800">Scan</Button>
+                      <Button variant="outline" onClick={() => socket.emit('scan-bluetooth')} className="border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none font-bold uppercase">Scan</Button>
                     </div>
-                    <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white" onClick={() => { 
+                    <Button className="w-full bg-[#e63946] hover:bg-[#c1121f] text-white rounded-none font-bold uppercase italic" onClick={() => { 
                       const device = bluetoothDevices.find(d => d.mac === selectedBluetooth);
                       if (device) {
                         setBtStatus('pairing'); 
@@ -775,20 +775,20 @@ export default function App() {
                       }
                     }}>Pair Device</Button>
                     {btStatus !== 'idle' && (
-                        <div className={`text-xs p-2 rounded border ${btStatus === 'success' ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' : btStatus === 'error' ? 'bg-red-950/30 border-red-900 text-red-400' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>
+                        <div className={`text-xs p-2 rounded-none border ${btStatus === 'success' ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' : btStatus === 'error' ? 'bg-red-950/30 border-red-900 text-red-400' : 'bg-[#001224] border-[#1d3557] text-[#a8dadc]'}`}>
                             {btStatus === 'pairing' ? 'Pairing...' : connectionMessage}
                         </div>
                     )}
                   </div>
 
-                  <Separator className="bg-zinc-800" />
+                  <Separator className="bg-[#1d3557]" />
 
                   {/* Power */}
                   <div className="flex gap-3">
-                    <Button variant="destructive" className="flex-1 bg-red-950/50 text-red-500 hover:bg-red-900/50 hover:text-red-400 border border-red-900/50" onClick={() => socket.emit('reboot-pi')}>
+                    <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('reboot-pi')}>
                       <Power className="w-4 h-4 mr-2" /> Reboot
                     </Button>
-                    <Button variant="destructive" className="flex-1 bg-red-950/50 text-red-500 hover:bg-red-900/50 hover:text-red-400 border border-red-900/50" onClick={() => socket.emit('shutdown-pi')}>
+                    <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('shutdown-pi')}>
                       <Power className="w-4 h-4 mr-2" /> Shutdown
                     </Button>
                   </div>
@@ -800,33 +800,33 @@ export default function App() {
 
           {activeTab === 'logs' && (
             <div className="space-y-8">
-              <Card className="bg-zinc-950 border-zinc-800">
-                <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 py-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
-                    <Terminal className="w-5 h-5 text-orange-500" />
-                    System Logs
+              <Card className="bg-[#001f3d] border-[#1d3557] rounded-none border-t-4 border-t-[#e63946]">
+                <CardHeader className="border-b border-[#1d3557] bg-[#001224]/50 py-4 flex flex-row items-center justify-between">
+                  <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                    <Terminal className="w-5 h-5 text-[#e63946]" />
+                    Intelligence Feed
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => setLogs([])} className="h-8 border-zinc-700 hover:bg-zinc-800">
-                    Clear Logs
+                  <Button variant="outline" size="sm" onClick={() => setLogs([])} className="h-8 border-[#1d3557] hover:bg-[#e63946] hover:text-white text-[#a8dadc] rounded-none font-bold uppercase">
+                    Clear Feed
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="h-[600px] overflow-y-auto p-4 font-mono text-xs space-y-1 bg-black">
+                  <div className="h-[600px] overflow-y-auto p-4 font-mono text-[11px] space-y-1 bg-[#001224]">
                     {logs.length === 0 ? (
-                      <div className="text-zinc-600 text-center py-10">No logs available</div>
+                      <div className="text-[#a8dadc]/30 text-center py-20 uppercase font-black italic tracking-widest">No Intelligence Data Available</div>
                     ) : (
                       logs.map((log, i) => (
-                        <div key={i} className={`flex gap-3 py-1 border-b border-zinc-900/50 ${
-                          log.level === 'error' ? 'text-red-400' : 
-                          log.level === 'warning' ? 'text-yellow-400' : 
-                          log.level === 'success' ? 'text-emerald-400' : 
-                          'text-zinc-400'
+                        <div key={i} className={`flex gap-3 py-1 border-b border-[#1d3557]/30 group ${
+                          log.level === 'error' ? 'text-[#e63946]' : 
+                          log.level === 'warning' ? 'text-[#f4a261]' : 
+                          log.level === 'success' ? 'text-[#457b9d]' : 
+                          'text-[#a8dadc]'
                         }`}>
-                          <span className="text-zinc-600 shrink-0 w-24">
+                          <span className="text-[#a8dadc]/40 shrink-0 w-24">
                             {new Date(log.timestamp).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}
                           </span>
-                          <span className="shrink-0 w-20 uppercase opacity-70">[{log.source}]</span>
-                          <span className="break-all">{log.message}</span>
+                          <span className="shrink-0 w-20 uppercase opacity-70 font-bold">[{log.source}]</span>
+                          <span className="break-all text-white group-hover:text-[#a8dadc] transition-colors">{log.message}</span>
                         </div>
                       ))
                     )}

@@ -397,14 +397,20 @@ def on_news_update(news):
 def on_scan_wifi():
     networks = []
     try:
+        sio.emit("pi-log", {"level": "info", "message": "Starting Wi-Fi scan..."})
         try:
-            subprocess.run(["nmcli", "dev", "wifi", "rescan"], timeout=5)
-        except:
-            pass
-        results = subprocess.check_output(["nmcli", "-t", "-f", "SSID", "dev", "wifi"]).decode().split('\n')
-        networks = list(set([r.strip() for r in results if r.strip()]))
+            # Rescan to get fresh results
+            subprocess.run(["sudo", "nmcli", "dev", "wifi", "rescan"], timeout=10, capture_output=True)
+        except Exception as e:
+            sio.emit("pi-log", {"level": "debug", "message": f"nmcli rescan failed (normal if already scanning): {str(e)}"})
+        
+        # Get results
+        results = subprocess.check_output(["sudo", "nmcli", "-t", "-f", "SSID", "dev", "wifi"]).decode().split('\n')
+        networks = list(set([r.strip() for r in results if r.strip() and r.strip() != "--"]))
+        
+        sio.emit("pi-log", {"level": "info", "message": f"Wi-Fi scan complete. Found {len(networks)} networks."})
     except Exception as e:
-        print("nmcli failed, trying iwlist...", e)
+        sio.emit("pi-log", {"level": "warning", "message": f"nmcli wifi scan failed, trying iwlist: {str(e)}"})
         try:
             scan_out = subprocess.check_output(["sudo", "iwlist", "wlan0", "scan"]).decode()
             for line in scan_out.split('\n'):
@@ -413,9 +419,9 @@ def on_scan_wifi():
                     if ssid:
                         networks.append(ssid)
             networks = list(set(networks))
+            sio.emit("pi-log", {"level": "info", "message": f"iwlist scan complete. Found {len(networks)} networks."})
         except Exception as e2:
-            print("iwlist failed:", e2)
-            sio.emit("client-error", f"WiFi Scan Error: {e2}")
+            sio.emit("pi-log", {"level": "error", "message": f"Wi-Fi scan totally failed: {str(e2)}"})
             
     sio.emit("wifi-scan-results", networks)
 
