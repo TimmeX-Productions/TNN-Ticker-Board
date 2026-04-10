@@ -101,6 +101,7 @@ let rotationActive = true;
 let rotationIndex = -1;
 let rotationTimer: NodeJS.Timeout | null = null;
 let latestNews = "";
+let currentMessage = "";
 
 async function getWeatherData(location: string, apiKey: string) {
     if (!location || !apiKey) return "Weather: Not Configured";
@@ -282,7 +283,7 @@ async function startServer() {
           const order = plugins.module_order || ['time', 'weather', 'sports', 'stocks', 'news'];
           
           const enabled = order.filter((m: string) => {
-              if (m === 'news') return appData.feeds.length > 0;
+              if (m === 'news') return plugins[m]?.enabled && appData.feeds.length > 0;
               return plugins[m]?.enabled;
           });
 
@@ -308,7 +309,7 @@ async function startServer() {
               } else if (currentModule === 'news') {
                   message = latestNews || "News: No recent updates";
               } else if (currentModule === 'sports') {
-                  message = await getSportsData(plugins.sports?.teams, plugins.sports?.leagues); 
+                  message = await getSportsData(plugins.sports?.teamSelections, plugins.sports?.leagues); 
               } else if (currentModule === 'crypto') {
                   message = await getStockData(plugins.crypto?.symbols?.split(',').map((s: string) => s.trim() + '-USD').join(','));
               } else if (currentModule === 'entertainment') {
@@ -319,6 +320,7 @@ async function startServer() {
           }
 
           if (message) {
+              currentMessage = message;
               io.emit("display-message", message);
           }
           
@@ -370,6 +372,9 @@ async function startServer() {
     socket.emit("preset-list", Object.keys(appData.presets));
     socket.emit("update-settings", appData.settings);
     socket.emit("rotation-status", rotationActive);
+    if (currentMessage) {
+        socket.emit("display-message", currentMessage);
+    }
     
     socket.on("add-feed", (feed) => { 
         if (!appData.feeds.includes(feed)) {
@@ -430,6 +435,7 @@ async function startServer() {
     socket.on("send-message", (message) => {
       rotationActive = false;
       if (rotationTimer) clearTimeout(rotationTimer);
+      currentMessage = message;
       io.emit("rotation-status", false);
       io.emit("display-message", message);
       socket.emit("status-update", { type: "success", message: "Message sent to matrix" });

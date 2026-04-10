@@ -115,18 +115,24 @@ export default function App() {
     socket.emit('update-settings', newSettings);
   };
 
-  const updatePlugin = (plugin: keyof typeof settings.plugins, key: string, value: any) => {
-    const newSettings = {
-      ...settings,
-      plugins: {
-        ...settings.plugins,
-        [plugin]: {
-          ...settings.plugins[plugin],
-          [key]: value
+  const updatePlugin = (plugin: keyof typeof settings.plugins, key: string, valueOrUpdater: any) => {
+    setSettings(prev => {
+      const currentValue = prev.plugins?.[plugin]?.[key];
+      const newValue = typeof valueOrUpdater === 'function' ? valueOrUpdater(currentValue) : valueOrUpdater;
+      
+      const newSettings = {
+        ...prev,
+        plugins: {
+          ...prev.plugins,
+          [plugin]: {
+            ...prev.plugins[plugin],
+            [key]: newValue
+          }
         }
-      }
-    };
-    sendSettings(newSettings);
+      };
+      socket.emit('update-settings', newSettings);
+      return newSettings;
+    });
   };
 
   const sendMessage = (e: React.FormEvent) => {
@@ -594,8 +600,7 @@ export default function App() {
                               id={`league-${league}`}
                               checked={settings.plugins?.sports?.leagues?.[league] !== false} 
                               onCheckedChange={(c) => {
-                                const currentLeagues = settings.plugins?.sports?.leagues || {};
-                                updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });
+                                updatePlugin('sports', 'leagues', (currentLeagues: any) => ({ ...(currentLeagues || {}), [league]: c }));
                               }} 
                               className="data-[state=checked]:bg-[#e63946] scale-75"
                             />
@@ -605,8 +610,7 @@ export default function App() {
                             <Input 
                               value={settings.plugins?.sports?.teamSelections?.[league] || ''} 
                               onChange={(e) => {
-                                const currentSelections = settings.plugins?.sports?.teamSelections || {};
-                                updatePlugin('sports', 'teamSelections', { ...currentSelections, [league]: e.target.value });
+                                updatePlugin('sports', 'teamSelections', (currentSelections: any) => ({ ...(currentSelections || {}), [league]: e.target.value }));
                               }} 
                               placeholder={`e.g. ${league === 'NCAAF' || league === 'NCAAB' ? 'Top 25, ' : ''}Team Abbr`} 
                               className="h-8 text-xs bg-[#001f3d] border-[#1d3557] text-white rounded-none"
