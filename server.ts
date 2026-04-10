@@ -504,13 +504,18 @@ async function startServer() {
     }
   };
 
+  app.use('/pi_client', express.static(path.join(process.cwd(), 'pi_client')));
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+    app.get("*", (req, res) => {
+      if (req.path.startsWith('/pi_client')) return; // Let static handle it
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {

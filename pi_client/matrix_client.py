@@ -19,8 +19,12 @@ except ImportError as e:
     HAS_MATRIX = False
     MATRIX_ERROR = str(e)
 
+import sys
+
 # --- Configuration ---
 SERVER_URL = 'http://127.0.0.1:3000' 
+if len(sys.argv) > 1:
+    SERVER_URL = sys.argv[1]
 # ---------------------
 
 sio = socketio.Client()
@@ -207,6 +211,19 @@ def draw_loop():
     if not os.path.exists(font_path):
         font_path = os.path.join(base_dir, "fonts", "7x13.bdf")
         
+    if not os.path.exists(font_path):
+        print(f"Font not found at {font_path}. Attempting to download...")
+        if sio.connected:
+            sio.emit("pi-log", {"level": "info", "message": "Font missing. Downloading 7x13.bdf..."})
+        try:
+            os.makedirs(os.path.dirname(font_path), exist_ok=True)
+            urllib.request.urlretrieve("https://raw.githubusercontent.com/hzeller/rpi-rgb-led-matrix/master/fonts/7x13.bdf", font_path)
+            print("Font downloaded successfully.")
+        except Exception as e:
+            print(f"Failed to download font: {e}")
+            if sio.connected:
+                sio.emit("pi-log", {"level": "error", "message": f"Failed to download font: {e}"})
+
     try:
         font.LoadFont(font_path)
         font_loaded = True
@@ -308,6 +325,8 @@ def draw_loop():
             
         except Exception as e:
             print(f"Draw loop error: {e}")
+            if sio.connected:
+                sio.emit("pi-log", {"level": "error", "message": f"Draw loop error: {e}"})
             time.sleep(1)
 
 def get_system_status():
@@ -595,9 +614,6 @@ def on_pair_bluetooth(data):
                     sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Authentication Failed. Please 'Forget' LEDPI on your phone and try again."})
                 else:
                     sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure your phone is in the Bluetooth settings screen."})
-        else:
-            sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
-            sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found."})
         else:
             sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
             sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found."})
