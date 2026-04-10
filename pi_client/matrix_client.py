@@ -210,9 +210,14 @@ def draw_loop():
     try:
         font.LoadFont(font_path)
         font_loaded = True
+        print(f"Successfully loaded font: {font_path}")
+        if sio.connected:
+            sio.emit("pi-log", {"level": "info", "message": f"Successfully loaded font: {font_path}"})
     except Exception as e:
         print(f"Failed to load font {font_path}: {e}")
         font_loaded = False
+        if sio.connected:
+            sio.emit("pi-log", {"level": "error", "message": f"Failed to load font {font_path}: {e}"})
     
     if not canvas:
         print("Canvas not initialized. Exiting draw loop.")
