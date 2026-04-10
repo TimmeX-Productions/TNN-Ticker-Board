@@ -500,12 +500,14 @@ def on_pair_bluetooth(data):
         if mac:
             sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with {device_name} ({mac})..."})
             
-            # Ensure agent is running to handle pairing handshake
-            subprocess.run(["sudo", "bluetoothctl", "agent", "NoInputNoOutput"], capture_output=True)
+            # Ensure agent is running. DisplayYesNo is often more reliable for modern phones
+            # as it triggers the "Confirm PIN" dialog on both ends.
+            subprocess.run(["sudo", "bluetoothctl", "agent", "DisplayYesNo"], capture_output=True)
             subprocess.run(["sudo", "bluetoothctl", "default-agent"], capture_output=True)
             
-            # IMPORTANT: Remove device first to clear stale encryption keys (fixes AuthenticationFailed)
+            # IMPORTANT: Disconnect and Remove device first to clear stale encryption keys
             sio.emit("pi-log", {"level": "info", "message": "Clearing stale pairing data..."})
+            subprocess.run(["sudo", "bluetoothctl", "disconnect", mac], capture_output=True)
             subprocess.run(["sudo", "bluetoothctl", "remove", mac], capture_output=True)
             time.sleep(2) # Give the stack a moment to settle
             
@@ -515,14 +517,14 @@ def on_pair_bluetooth(data):
             # Trust the device
             subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True)
             
-            sio.emit("pi-log", {"level": "info", "message": "Sending pair request. Please check your phone for a pairing prompt."})
+            sio.emit("pi-log", {"level": "info", "message": "Sending pair request. PLEASE CHECK YOUR PHONE FOR A PAIRING PROMPT AND TAP 'PAIR' OR 'OK'."})
             
             # Start pairing
             pair_res = subprocess.run(["sudo", "bluetoothctl", "pair", mac], capture_output=True, text=True)
             if pair_res.returncode != 0:
                 sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
                 if "authenticationfailed" in pair_res.stderr.lower() or "authenticationfailed" in pair_res.stdout.lower():
-                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Authentication Failed. Please 'Forget' LEDPI on your phone's Bluetooth settings and try again."})
+                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Authentication Failed. CRITICAL: You MUST 'Forget' LEDPI on your phone's Bluetooth settings before trying again."})
                 else:
                     sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure device is discoverable."})
                 return
