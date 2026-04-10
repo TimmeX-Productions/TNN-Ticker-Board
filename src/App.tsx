@@ -339,9 +339,16 @@ export default function App() {
                           onValueChange={(v) => {
                             const val = v[0];
                             if (settings.schedule?.enabled) {
-                              sendSettings({...settings, schedule: {...settings.schedule, day_brightness: val}});
+                              setSettings({...settings, schedule: {...(settings.schedule || {}), day_brightness: val}});
                             } else {
                               setSettings({...settings, brightness: val});
+                            }
+                          }}
+                          onValueCommit={(v) => {
+                            const val = v[0];
+                            if (settings.schedule?.enabled) {
+                              sendSettings({...settings, schedule: {...(settings.schedule || {}), day_brightness: val}});
+                            } else {
                               sendSettings({...settings, brightness: val});
                             }
                           }}
@@ -359,6 +366,9 @@ export default function App() {
                           onValueChange={(v) => {
                             const val = v[0];
                             setSettings({...settings, speed: val});
+                          }}
+                          onValueCommit={(v) => {
+                            const val = v[0];
                             sendSettings({...settings, speed: val});
                           }}
                           className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
@@ -375,6 +385,9 @@ export default function App() {
                           onValueChange={(v) => {
                             const val = v[0];
                             setSettings({...settings, font_y_offset: val});
+                          }}
+                          onValueCommit={(v) => {
+                            const val = v[0];
                             sendSettings({...settings, font_y_offset: val});
                           }}
                           className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
@@ -570,6 +583,16 @@ export default function App() {
                   <Switch checked={settings.plugins?.sports?.enabled} onCheckedChange={(c) => updatePlugin('sports', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Favorite Teams (Abbreviations)</Label>
+                    <Input 
+                      value={settings.plugins?.sports?.teams || ''} 
+                      onChange={(e) => updatePlugin('sports', 'teams', e.target.value)} 
+                      placeholder="e.g. LAL, NYK, SF" 
+                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
+                    />
+                    <p className="text-[10px] text-[#a8dadc]/50">Leave blank to show all games.</p>
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Leagues</Label>
                     <div className="grid grid-cols-3 gap-2">

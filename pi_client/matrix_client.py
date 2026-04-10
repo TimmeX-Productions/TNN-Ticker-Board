@@ -241,7 +241,10 @@ def draw_loop():
     try:
         # The rgbmatrix library sometimes requires the path to be a byte string in older python versions, 
         # but string in newer. We pass it as string, but if it fails we can try bytes.
-        font.LoadFont(font_path)
+        try:
+            font.LoadFont(font_path)
+        except Exception:
+            font.LoadFont(font_path.encode('utf-8'))
         font_loaded = True
         print(f"Successfully loaded font: {font_path}")
         if sio.connected:
