@@ -334,18 +334,18 @@ export default function App() {
                           <span className="text-white font-mono text-sm">{settings.schedule?.enabled ? settings.schedule?.day_brightness : settings.brightness ?? 100}%</span>
                         </div>
                         <Slider 
-                          value={[settings.schedule?.enabled ? (settings.schedule?.day_brightness ?? 100) : (settings.brightness ?? 100)]} 
+                          value={settings.schedule?.enabled ? (settings.schedule?.day_brightness ?? 100) : (settings.brightness ?? 100)} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            const val = v[0];
+                            const val = Array.isArray(v) ? v[0] : v;
                             if (settings.schedule?.enabled) {
                               setSettings({...settings, schedule: {...(settings.schedule || {}), day_brightness: val}});
                             } else {
                               setSettings({...settings, brightness: val});
                             }
                           }}
-                          onValueCommit={(v) => {
-                            const val = v[0];
+                          onValueCommitted={(v) => {
+                            const val = Array.isArray(v) ? v[0] : v;
                             if (settings.schedule?.enabled) {
                               sendSettings({...settings, schedule: {...(settings.schedule || {}), day_brightness: val}});
                             } else {
@@ -361,14 +361,14 @@ export default function App() {
                           <span className="text-white font-mono text-sm">{settings.speed ?? 50}</span>
                         </div>
                         <Slider 
-                          value={[settings.speed ?? 50]} 
+                          value={settings.speed ?? 50} 
                           min={0} max={100} 
                           onValueChange={(v) => {
-                            const val = v[0];
+                            const val = Array.isArray(v) ? v[0] : v;
                             setSettings({...settings, speed: val});
                           }}
-                          onValueCommit={(v) => {
-                            const val = v[0];
+                          onValueCommitted={(v) => {
+                            const val = Array.isArray(v) ? v[0] : v;
                             sendSettings({...settings, speed: val});
                           }}
                           className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
@@ -380,14 +380,14 @@ export default function App() {
                           <span className="text-white font-mono text-sm">{settings.font_y_offset ?? 0}px</span>
                         </div>
                         <Slider 
-                          value={[settings.font_y_offset ?? 0]} 
+                          value={settings.font_y_offset ?? 0} 
                           min={-32} max={32} 
                           onValueChange={(v) => {
-                            const val = v[0];
+                            const val = Array.isArray(v) ? v[0] : v;
                             setSettings({...settings, font_y_offset: val});
                           }}
-                          onValueCommit={(v) => {
-                            const val = v[0];
+                          onValueCommitted={(v) => {
+                            const val = Array.isArray(v) ? v[0] : v;
                             sendSettings({...settings, font_y_offset: val});
                           }}
                           className="[&_[role=slider]]:bg-[#e63946] [&_[role=slider]]:border-white"
@@ -583,31 +583,35 @@ export default function App() {
                   <Switch checked={settings.plugins?.sports?.enabled} onCheckedChange={(c) => updatePlugin('sports', 'enabled', c)} className="data-[state=checked]:bg-[#e63946]" />
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Favorite Teams (Abbreviations)</Label>
-                    <Input 
-                      value={settings.plugins?.sports?.teams || ''} 
-                      onChange={(e) => updatePlugin('sports', 'teams', e.target.value)} 
-                      placeholder="e.g. LAL, NYK, SF" 
-                      className="bg-[#001224] border-[#1d3557] text-white rounded-none"
-                    />
-                    <p className="text-[10px] text-[#a8dadc]/50">Leave blank to show all games.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Leagues</Label>
-                    <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-bold uppercase text-[#a8dadc]">Leagues & Teams</Label>
+                    <p className="text-[10px] text-[#a8dadc]/50">Enter team abbreviations (e.g. LAL, NYK) or "Top 25". Leave blank for all games.</p>
+                    <div className="flex flex-col gap-2">
                       {['NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB'].map(league => (
-                        <div key={league} className="flex items-center space-x-2">
-                          <Switch 
-                            id={`league-${league}`}
-                            checked={settings.plugins?.sports?.leagues?.[league] !== false} 
-                            onCheckedChange={(c) => {
-                              const currentLeagues = settings.plugins?.sports?.leagues || {};
-                              updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });
-                            }} 
-                            className="data-[state=checked]:bg-[#e63946] scale-75"
-                          />
-                          <Label htmlFor={`league-${league}`} className="text-[10px] font-bold text-[#a8dadc]">{league}</Label>
+                        <div key={league} className="flex flex-col space-y-2 p-2 bg-[#001224] border border-[#1d3557]">
+                          <div className="flex items-center space-x-2">
+                            <Switch 
+                              id={`league-${league}`}
+                              checked={settings.plugins?.sports?.leagues?.[league] !== false} 
+                              onCheckedChange={(c) => {
+                                const currentLeagues = settings.plugins?.sports?.leagues || {};
+                                updatePlugin('sports', 'leagues', { ...currentLeagues, [league]: c });
+                              }} 
+                              className="data-[state=checked]:bg-[#e63946] scale-75"
+                            />
+                            <Label htmlFor={`league-${league}`} className="text-xs font-bold text-[#a8dadc]">{league}</Label>
+                          </div>
+                          {settings.plugins?.sports?.leagues?.[league] !== false && (
+                            <Input 
+                              value={settings.plugins?.sports?.teamSelections?.[league] || ''} 
+                              onChange={(e) => {
+                                const currentSelections = settings.plugins?.sports?.teamSelections || {};
+                                updatePlugin('sports', 'teamSelections', { ...currentSelections, [league]: e.target.value });
+                              }} 
+                              placeholder={`e.g. ${league === 'NCAAF' || league === 'NCAAB' ? 'Top 25, ' : ''}Team Abbr`} 
+                              className="h-8 text-xs bg-[#001f3d] border-[#1d3557] text-white rounded-none"
+                            />
+                          )}
                         </div>
                       ))}
                     </div>

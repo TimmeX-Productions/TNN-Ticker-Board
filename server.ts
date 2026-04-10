@@ -156,7 +156,7 @@ async function getStockData(symbols: string) {
     }
 }
 
-async function getSportsData(teams: string, leagues: any) {
+async function getSportsData(teamSelections: any, leagues: any) {
     try {
         const endpoints: {url: string, prefix: string, enabled: boolean}[] = [
             { url: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', prefix: 'NFL', enabled: leagues?.NFL !== false },
@@ -180,9 +180,15 @@ async function getSportsData(teams: string, leagues: any) {
 
         const allEvents = await Promise.all(activeEndpoints.map(async (ep) => {
             try {
+                // If "Top 25" is specified for NCAAF/NCAAB, we append groups=80 to ensure we get all ranked games
+                let fetchUrl = ep.url;
+                if ((ep.prefix === 'NCAAF' || ep.prefix === 'NCAAB') && teamSelections && teamSelections[ep.prefix]?.toUpperCase().includes('TOP 25')) {
+                    fetchUrl += '?groups=80';
+                }
+
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
-                const res = await fetch(ep.url, { signal: controller.signal });
+                const res = await fetch(fetchUrl, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (!res.ok) return [];
                 const data = await res.json() as any;
@@ -214,21 +220,48 @@ async function getSportsData(teams: string, leagues: any) {
                 const homeLogo = homeLogoUrl ? `{img:${homeLogoUrl}${homeLogoUrl.includes('?') ? '&' : '?'}w=24&h=24}` : '';
                 const awayLogo = awayLogoUrl ? `{img:${awayLogoUrl}${awayLogoUrl.includes('?') ? '&' : '?'}w=24&h=24}` : '';
                 
-                return `{y}[${e._prefix}]{d} ${awayLogo}${awayColor}${away.team.abbreviation} ${away.score}{d} @ ${homeLogo}${homeColor}${home.team.abbreviation} ${home.score}{d} ({y}${status}{d})`;
+                const formattedStr = `{y}[${e._prefix}]{d} ${awayLogo}${awayColor}${away.team.abbreviation} ${away.score}{d} @ ${homeLogo}${homeColor}${home.team.abbreviation} ${home.score}{d} ({y}${status}{d})`;
+                
+                return {
+                    prefix: e._prefix,
+                    str: formattedStr,
+                    homeAbbr: home.team.abbreviation?.toUpperCase(),
+                    awayAbbr: away.team.abbreviation?.toUpperCase(),
+                    homeName: home.team.displayName?.toUpperCase(),
+                    awayName: away.team.displayName?.toUpperCase(),
+                    homeRank: home.curatedRank?.current,
+                    awayRank: away.curatedRank?.current
+                };
             } catch (err) {
                 return null;
             }
         }).filter(s => s !== null);
 
-        if (teams) {
-            const teamList = teams.split(',').map(t => t.trim().toUpperCase()).filter(t => t);
-            if (teamList.length > 0) {
-                scores = scores.filter((s: string) => teamList.some(t => s.includes(t)));
-            }
+        if (teamSelections) {
+            scores = scores.filter((s: any) => {
+                const selectionStr = teamSelections[s.prefix];
+                if (!selectionStr || selectionStr.trim() === '') return true; // Show all if blank
+                
+                const selections = selectionStr.split(',').map((t: string) => t.trim().toUpperCase()).filter((t: string) => t);
+                
+                // Check if "TOP 25" is in selections
+                const wantsTop25 = selections.includes('TOP 25');
+                const isTop25 = (s.homeRank >= 1 && s.homeRank <= 25) || (s.awayRank >= 1 && s.awayRank <= 25);
+                
+                if (wantsTop25 && isTop25) return true;
+                
+                // Check specific teams
+                return selections.some((t: string) => 
+                    t !== 'TOP 25' && (
+                        s.homeAbbr === t || s.awayAbbr === t || 
+                        s.homeName?.includes(t) || s.awayName?.includes(t)
+                    )
+                );
+            });
         }
         
         if (scores.length === 0) return "Sports: No games today for selected teams/leagues";
-        return scores.join(' | ');
+        return scores.map((s: any) => s.str).join(' | ');
     } catch (e) {
         return "Sports: Error fetching data";
     }
