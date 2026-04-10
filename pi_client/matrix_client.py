@@ -205,7 +205,7 @@ def draw_loop():
             time.sleep(1)
             
     font = graphics.Font()
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "fonts", settings.get('font', '7x13.bdf'))
     
     if not os.path.exists(font_path):
@@ -268,7 +268,7 @@ def draw_loop():
                 display_text = "Waiting for messages..."
 
             if display_text and font_loaded:
-                effect = settings.get("effect", "scroll")
+                effect = settings.get("mode", "scroll")
                 text_width = get_colored_text_width(font, display_text)
                 
                 y_offset = int(settings.get("font_y_offset", 0))
@@ -279,8 +279,14 @@ def draw_loop():
                 elif effect == "bounce":
                     draw_colored_text(canvas, font, pos, y_pos, text_color, display_text)
                     pos += bounce_dir
-                    if pos < 0 or pos + text_width > canvas.width:
-                        bounce_dir *= -1
+                    min_x = min(0, canvas.width - text_width)
+                    max_x = max(0, canvas.width - text_width)
+                    if pos < min_x:
+                        pos = min_x
+                        bounce_dir = abs(bounce_dir)
+                    elif pos > max_x:
+                        pos = max_x
+                        bounce_dir = -abs(bounce_dir)
                 elif effect == "flash":
                     if int(time.time() * 2) % 2 == 0:
                         draw_colored_text(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
