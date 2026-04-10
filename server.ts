@@ -105,7 +105,10 @@ let latestNews = "";
 async function getWeatherData(location: string, apiKey: string) {
     if (!location || !apiKey) return "Weather: Not Configured";
     try {
-        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=imperial`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&appid=${apiKey}&units=imperial`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json() as any;
         if (data.weather) {
             return `Weather in ${data.name}: ${data.weather[0].description}, ${Math.round(data.main.temp)}°F`;
@@ -124,7 +127,10 @@ async function getStockData(symbols: string) {
 
         const results = await Promise.all(symbolList.map(async (sym) => {
             try {
-                const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) return null;
                 const data = await res.json() as any;
                 if (!data.chart || !data.chart.result || data.chart.result.length === 0) return null;
@@ -174,7 +180,10 @@ async function getSportsData(teams: string, leagues: any) {
 
         const allEvents = await Promise.all(activeEndpoints.map(async (ep) => {
             try {
-                const res = await fetch(ep.url);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const res = await fetch(ep.url, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) return [];
                 const data = await res.json() as any;
                 return (data.events || []).map((e: any) => ({ ...e, _prefix: ep.prefix }));
@@ -233,59 +242,64 @@ async function startServer() {
   const PORT = 3000;
 
   async function processRotation() {
-      if (!rotationActive) return;
-      
-      const plugins = appData.settings.plugins as any;
-      const order = plugins.module_order || ['time', 'weather', 'sports', 'stocks', 'news'];
-      
-      const enabled = order.filter((m: string) => {
-          if (m === 'news') return appData.feeds.length > 0;
-          return plugins[m]?.enabled;
-      });
-
-      if (enabled.length === 0) {
-          rotationTimer = setTimeout(processRotation, 5000);
-          return;
-      }
-
-      rotationIndex = (rotationIndex + 1) % enabled.length;
-      const currentModule = enabled[rotationIndex];
-      let message = "";
-
       try {
-          if (currentModule === 'time') {
-              const format = plugins.time?.format === '24h' ? 'en-GB' : 'en-US';
-              const options: any = {};
-              if (plugins.time?.timezone) options.timeZone = plugins.time.timezone;
-              message = new Date().toLocaleTimeString(format, options);
-          } else if (currentModule === 'weather') {
-              message = await getWeatherData(plugins.weather?.location, plugins.weather?.api_key);
-          } else if (currentModule === 'stocks') {
-              message = await getStockData(plugins.stocks?.symbols);
-          } else if (currentModule === 'news') {
-              message = latestNews || "News: No recent updates";
-          } else if (currentModule === 'sports') {
-              message = await getSportsData(plugins.sports?.teams, plugins.sports?.leagues); 
-          } else if (currentModule === 'crypto') {
-              message = await getStockData(plugins.crypto?.symbols?.split(',').map((s: string) => s.trim() + '-USD').join(','));
-          } else if (currentModule === 'entertainment') {
-              message = "Enjoy the Matrix!";
-          }
-      } catch (e) {
-          message = `Error loading ${currentModule}`;
-      }
+          if (!rotationActive) return;
+          
+          const plugins = appData.settings.plugins as any;
+          const order = plugins.module_order || ['time', 'weather', 'sports', 'stocks', 'news'];
+          
+          const enabled = order.filter((m: string) => {
+              if (m === 'news') return appData.feeds.length > 0;
+              return plugins[m]?.enabled;
+          });
 
-      if (message) {
-          io.emit("display-message", message);
+          if (enabled.length === 0) {
+              rotationTimer = setTimeout(processRotation, 5000);
+              return;
+          }
+
+          rotationIndex = (rotationIndex + 1) % enabled.length;
+          const currentModule = enabled[rotationIndex];
+          let message = "";
+
+          try {
+              if (currentModule === 'time') {
+                  const format = plugins.time?.format === '24h' ? 'en-GB' : 'en-US';
+                  const options: any = {};
+                  if (plugins.time?.timezone) options.timeZone = plugins.time.timezone;
+                  message = new Date().toLocaleTimeString(format, options);
+              } else if (currentModule === 'weather') {
+                  message = await getWeatherData(plugins.weather?.location, plugins.weather?.api_key);
+              } else if (currentModule === 'stocks') {
+                  message = await getStockData(plugins.stocks?.symbols);
+              } else if (currentModule === 'news') {
+                  message = latestNews || "News: No recent updates";
+              } else if (currentModule === 'sports') {
+                  message = await getSportsData(plugins.sports?.teams, plugins.sports?.leagues); 
+              } else if (currentModule === 'crypto') {
+                  message = await getStockData(plugins.crypto?.symbols?.split(',').map((s: string) => s.trim() + '-USD').join(','));
+              } else if (currentModule === 'entertainment') {
+                  message = "Enjoy the Matrix!";
+              }
+          } catch (e) {
+              message = `Error loading ${currentModule}`;
+          }
+
+          if (message) {
+              io.emit("display-message", message);
+          }
+          
+          let durationSeconds = 15;
+          if (plugins[currentModule] && plugins[currentModule].duration) {
+              durationSeconds = parseInt(plugins[currentModule].duration);
+          }
+          if (isNaN(durationSeconds) || durationSeconds < 1) durationSeconds = 15;
+          
+          rotationTimer = setTimeout(processRotation, durationSeconds * 1000);
+      } catch (err) {
+          console.error("Critical error in rotation loop:", err);
+          rotationTimer = setTimeout(processRotation, 10000); // Try again in 10s
       }
-      
-      let durationSeconds = 15;
-      if (plugins[currentModule] && plugins[currentModule].duration) {
-          durationSeconds = parseInt(plugins[currentModule].duration);
-      }
-      if (isNaN(durationSeconds) || durationSeconds < 1) durationSeconds = 15;
-      
-      rotationTimer = setTimeout(processRotation, durationSeconds * 1000);
   }
 
   // Fetch RSS periodically
@@ -322,6 +336,7 @@ async function startServer() {
     socket.emit("feed-list", appData.feeds);
     socket.emit("preset-list", Object.keys(appData.presets));
     socket.emit("update-settings", appData.settings);
+    socket.emit("rotation-status", rotationActive);
     
     socket.on("add-feed", (feed) => { 
         if (!appData.feeds.includes(feed)) {
@@ -417,6 +432,21 @@ async function startServer() {
       io.emit("toggle-bt-config", enabled);
     });
 
+    socket.on("refresh-data", async () => {
+      socket.emit("status-update", { type: "info", message: "Refreshing all module data..." });
+      await fetchNews();
+      if (rotationActive) {
+          if (rotationTimer) clearTimeout(rotationTimer);
+          processRotation();
+      }
+      socket.emit("status-update", { type: "success", message: "Data refresh complete" });
+    });
+
+    socket.on("restart-matrix", () => {
+      io.emit("request-restart-matrix");
+      socket.emit("status-update", { type: "info", message: "Restarting matrix display..." });
+    });
+    
     // Presets
     socket.on("save-preset", (data) => {
       appData.presets[data.name] = data.settings;

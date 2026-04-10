@@ -216,6 +216,8 @@ def draw_loop():
     
     if not canvas:
         print("Canvas not initialized. Exiting draw loop.")
+        if sio.connected:
+            sio.emit("pi-log", {"level": "error", "message": "Draw loop failed: Canvas not initialized. Check hardware mapping."})
         return
 
     pos = canvas.width
@@ -387,11 +389,20 @@ def on_display_message(msg):
     global current_message
     current_message = msg
     print("New message:", msg)
+    if sio.connected:
+        sio.emit("pi-log", {"level": "debug", "message": f"Matrix drawing: {msg}"})
 
 @sio.on('news-update')
 def on_news_update(news):
     global current_news
     current_news = news
+
+@sio.on('request-restart-matrix')
+def on_restart_matrix():
+    sio.emit("pi-log", {"level": "info", "message": "Manual restart of matrix display triggered."})
+    time.sleep(1)
+    import sys
+    os.execv(sys.executable, ['python3'] + sys.argv)
 
 @sio.on('request-scan-wifi')
 def on_scan_wifi():

@@ -20,6 +20,7 @@ const socket = io();
 export default function App() {
   const [activeTab, setActiveTab] = useState('live');
   const [message, setMessage] = useState('');
+  const [displayMessage, setDisplayMessage] = useState('Waiting for broadcast...');
   const [news, setNews] = useState<{ title: string; image: string } | null>(null);
   const [feeds, setFeeds] = useState<string[]>([]);
   const [newFeed, setNewFeed] = useState('');
@@ -34,10 +35,13 @@ export default function App() {
     use_short_date_format: true,
     dynamic_duration: { max_duration_seconds: 60 },
     plugins: {
+      module_order: ['time', 'weather', 'sports', 'stocks', 'crypto', 'news'],
       time: { enabled: true, format: '12h' },
       weather: { enabled: false, location: '', api_key: '' },
       sports: { enabled: false, teams: '' },
       stocks: { enabled: false, symbols: '' },
+      crypto: { enabled: false, symbols: 'BTC,ETH,DOGE' },
+      news: { enabled: false },
       entertainment: { enabled: false, mode: 'game_of_life' }
     }
   });
@@ -72,6 +76,7 @@ export default function App() {
     socket.on('bluetooth-scan-results', (data) => setBluetoothDevices(data));
     socket.on('update-settings', (data) => setSettings(data));
     socket.on('rotation-status', (data) => setRotationActive(data));
+    socket.on('display-message', (data) => setDisplayMessage(data));
     socket.on('logs-list', (data) => setLogs(data));
     socket.on('new-log', (log) => setLogs(prev => [log, ...prev].slice(0, 100)));
     socket.on('connection-status', (data) => {
@@ -95,6 +100,7 @@ export default function App() {
       socket.off('preset-list'); socket.off('health-update');
       socket.off('wifi-scan-results'); socket.off('bluetooth-scan-results');
       socket.off('update-settings'); socket.off('connection-status'); socket.off('status-update');
+      socket.off('display-message');
       socket.off('logs-list'); socket.off('new-log');
     };
   }, []);
@@ -210,14 +216,27 @@ export default function App() {
 
           {/* Always show Live Preview at the top */}
           <Card className="bg-[#001f3d] border-[#1d3557] shadow-2xl overflow-hidden rounded-none border-t-4 border-t-[#e63946]">
-            <CardHeader className="border-b border-[#1d3557] bg-[#001224]/50 py-4">
-              <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
-                <MonitorPlay className="w-5 h-5 text-[#e63946]" />
-                Live Broadcast
-              </CardTitle>
+            <CardHeader className="border-b border-[#1d3557] bg-[#001224]/50 py-4 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-white flex items-center gap-2 text-lg font-black uppercase italic tracking-tighter">
+                  <MonitorPlay className="w-5 h-5 text-[#e63946]" />
+                  Live Broadcast
+                </CardTitle>
+                <CardDescription className="text-[#a8dadc]/60 font-bold uppercase text-[10px] tracking-widest">Real-time simulation of the LED matrix output.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${rotationActive ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-600'}`}></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#a8dadc]">{rotationActive ? 'LIVE ROTATION' : 'STATIC MODE'}</span>
+              </div>
             </CardHeader>
             <CardContent className="p-6">
-              <MatrixPreview settings={settings} message={message} news={news} />
+              <MatrixPreview settings={settings} message={rotationActive ? displayMessage : message} news={news} />
+              <div className="mt-4 p-3 bg-[#001224] border border-[#1d3557] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#a8dadc]/50">Current Feed:</span>
+                  <span className="text-white font-mono text-xs truncate max-w-[300px]">{rotationActive ? displayMessage : (message || 'No Active Message')}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -421,7 +440,12 @@ export default function App() {
                   </CardTitle>
                   <CardDescription className="text-[#a8dadc]/60 font-bold uppercase text-[10px] tracking-widest">Set the order and duration for each news segment.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => socket.emit('refresh-data')} className="h-8 border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none font-bold uppercase">
+                      <Activity className="w-4 h-4 mr-2" /> Refresh Data
+                    </Button>
+                  </div>
                   <div className="flex flex-col gap-3">
                     {(settings.plugins as any).module_order?.map((mod: string, idx: number) => (
                       <div key={`${mod}-${idx}`} className="flex items-center justify-between bg-[#001224] border border-[#1d3557] rounded-none px-4 py-2">
@@ -784,13 +808,18 @@ export default function App() {
                   <Separator className="bg-[#1d3557]" />
 
                   {/* Power */}
-                  <div className="flex gap-3">
-                    <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('reboot-pi')}>
-                      <Power className="w-4 h-4 mr-2" /> Reboot
+                  <div className="space-y-3">
+                    <Button variant="outline" className="w-full border-[#1d3557] hover:bg-[#1d3557] text-[#a8dadc] rounded-none font-bold uppercase" onClick={() => socket.emit('restart-matrix')}>
+                      <Activity className="w-4 h-4 mr-2" /> Restart Display Script
                     </Button>
-                    <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('shutdown-pi')}>
-                      <Power className="w-4 h-4 mr-2" /> Shutdown
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('reboot-pi')}>
+                        <Power className="w-4 h-4 mr-2" /> Reboot Pi
+                      </Button>
+                      <Button variant="destructive" className="flex-1 bg-[#e63946]/20 text-[#e63946] hover:bg-[#e63946]/30 border border-[#e63946]/30 rounded-none font-bold uppercase italic" onClick={() => socket.emit('shutdown-pi')}>
+                        <Power className="w-4 h-4 mr-2" /> Shutdown Pi
+                      </Button>
+                    </div>
                   </div>
 
                 </CardContent>
