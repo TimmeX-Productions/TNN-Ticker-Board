@@ -244,27 +244,54 @@ def draw_loop():
                 display_text = "Waiting for messages..."
 
             if display_text and font_loaded:
-                mode = settings.get("mode", "scroll")
+                effect = settings.get("effect", "scroll")
                 text_width = get_colored_text_width(font, display_text)
                 
                 y_offset = int(settings.get("font_y_offset", 0))
                 y_pos = (canvas.height // 2) + 4 + y_offset
                 
-                if mode == "static":
+                if effect == "static":
                     draw_colored_text(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
-                elif mode == "bounce":
+                elif effect == "bounce":
                     draw_colored_text(canvas, font, pos, y_pos, text_color, display_text)
                     pos += bounce_dir
                     if pos < 0 or pos + text_width > canvas.width:
                         bounce_dir *= -1
-                elif mode == "flash":
+                elif effect == "flash":
                     if int(time.time() * 2) % 2 == 0:
                         draw_colored_text(canvas, font, (canvas.width - text_width) // 2, y_pos, text_color, display_text)
+                elif effect == "typewriter":
+                    # Reveal characters based on time
+                    reveal_speed = settings.get("speed", 50) / 100.0 * 5.0 # chars per second
+                    chars_to_show = int((time.time() % (len(display_text) / reveal_speed + 2)) * reveal_speed)
+                    if chars_to_show > len(display_text): chars_to_show = len(display_text)
+                    partial_text = display_text[:chars_to_show]
+                    partial_width = get_colored_text_width(font, partial_text)
+                    draw_colored_text(canvas, font, (canvas.width - partial_width) // 2, y_pos, text_color, partial_text)
                 else: # scroll
                     draw_colored_text(canvas, font, pos, y_pos, text_color, display_text)
                     pos -= 1
                     if (pos + text_width < 0):
                         pos = canvas.width
+
+            # Handle brightness schedule
+            schedule = settings.get("schedule", {})
+            if schedule.get("enabled", False):
+                now = time.localtime()
+                current_time = f"{now.tm_hour:02d}:{now.tm_min:02d}"
+                start = schedule.get("night_start", "22:00")
+                end = schedule.get("night_end", "07:00")
+                
+                is_night = False
+                if start < end:
+                    is_night = start <= current_time < end
+                else: # crosses midnight
+                    is_night = current_time >= start or current_time < end
+                    
+                target_brightness = int(schedule.get("night_brightness", 20)) if is_night else int(schedule.get("day_brightness", 100))
+                matrix.brightness = target_brightness
+            else:
+                matrix.brightness = int(settings.get("brightness", 100))
 
             canvas = matrix.SwapOnVSync(canvas)
             
@@ -452,52 +479,78 @@ def on_pair_bluetooth(data):
                     mac = parts[1]
                 break
         if mac:
-            subprocess.run(["sudo", "bluetoothctl", "pair", mac], check=True)
-            subprocess.run(["sudo", "bluetoothctl", "trust", mac], check=True)
+            sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with MAC: {mac}"})
+            
+            # Remove device first in case it's in a bad state
+            subprocess.run(["sudo", "bluetoothctl", "remove", mac], capture_output=True)
+            
+            pair_res = subprocess.run(["sudo", "bluetoothctl", "pair", mac], capture_output=True, text=True)
+            if pair_res.returncode != 0:
+                sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
+                
+            trust_res = subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True, text=True)
+            if trust_res.returncode != 0:
+                sio.emit("pi-log", {"level": "error", "message": f"Trust failed: {trust_res.stderr} {trust_res.stdout}"})
+                
             sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {data['device']}"})
         else:
+            sio.emit("pi-log", {"level": "error", "message": f"Device MAC not found for {data['device']}"})
             sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device MAC not found"})
     except Exception as e:
+        sio.emit("pi-log", {"level": "error", "message": f"Bluetooth pair exception: {str(e)}"})
         sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": f"Failed: {str(e)}"})
 
 @sio.on('request-enable-bt-pan')
 def on_enable_bt_pan():
     try:
+        sio.emit("pi-log", {"level": "info", "message": "Starting Bluetooth PAN setup..."})
         # Ensure Bluetooth is powered on and agent is running
-        subprocess.run(["sudo", "bluetoothctl", "power", "on"], check=False)
-        subprocess.run(["sudo", "bluetoothctl", "agent", "on"], check=False)
-        subprocess.run(["sudo", "bluetoothctl", "default-agent"], check=False)
+        subprocess.run(["sudo", "bluetoothctl", "power", "on"], capture_output=True)
+        # Use NoInputNoOutput to allow modern phones (like Pixel) to pair without a PIN code
+        subprocess.run(["sudo", "bluetoothctl", "agent", "NoInputNoOutput"], capture_output=True)
+        subprocess.run(["sudo", "bluetoothctl", "default-agent"], capture_output=True)
         
-        # Set Bluetooth name and make discoverable
-        subprocess.run(["sudo", "bluetoothctl", "system-alias", "LEDPI"], check=False)
-        subprocess.run(["sudo", "bluetoothctl", "discoverable", "on"], check=False)
-        subprocess.run(["sudo", "bluetoothctl", "pairable", "on"], check=False)
+        # Set Bluetooth name and make discoverable indefinitely
+        subprocess.run(["sudo", "bluetoothctl", "system-alias", "LEDPI"], capture_output=True)
+        subprocess.run(["sudo", "bluetoothctl", "discoverable-timeout", "0"], capture_output=True)
+        subprocess.run(["sudo", "bluetoothctl", "pairable-timeout", "0"], capture_output=True)
+        subprocess.run(["sudo", "bluetoothctl", "discoverable", "on"], capture_output=True)
+        subprocess.run(["sudo", "bluetoothctl", "pairable", "on"], capture_output=True)
+        
+        sio.emit("pi-log", {"level": "info", "message": "Bluetooth discoverability enabled."})
         
         # Fallback for older systems to force name change and discoverability
-        subprocess.run(["sudo", "hciconfig", "hci0", "up"], check=False)
-        subprocess.run(["sudo", "hciconfig", "hci0", "name", "LEDPI"], check=False)
-        subprocess.run(["sudo", "hciconfig", "hci0", "piscan"], check=False)
+        subprocess.run(["sudo", "hciconfig", "hci0", "up"], capture_output=True)
+        subprocess.run(["sudo", "hciconfig", "hci0", "name", "LEDPI"], capture_output=True)
+        subprocess.run(["sudo", "hciconfig", "hci0", "piscan"], capture_output=True)
         
         # Try nmcli first (Raspberry Pi OS Bookworm+)
         try:
             existing = subprocess.run(["sudo", "nmcli", "connection", "show"], capture_output=True, text=True)
             if "bt-pan" in existing.stdout:
-                subprocess.run(["sudo", "nmcli", "connection", "up", "bt-pan"], check=True)
+                nmcli_res = subprocess.run(["sudo", "nmcli", "connection", "up", "bt-pan"], capture_output=True, text=True)
+                if nmcli_res.returncode != 0:
+                    sio.emit("pi-log", {"level": "error", "message": f"nmcli up failed: {nmcli_res.stderr}"})
             else:
-                subprocess.run(["sudo", "nmcli", "connection", "add", "type", "bluetooth", "autoconnect", "yes", "bt-type", "nap", "ipv4.method", "shared", "ipv4.address", "10.0.0.1/24", "ipv6.method", "ignore", "con-name", "bt-pan"], check=True)
+                nmcli_res = subprocess.run(["sudo", "nmcli", "connection", "add", "type", "bluetooth", "autoconnect", "yes", "bt-type", "nap", "ipv4.method", "shared", "ipv4.address", "10.0.0.1/24", "ipv6.method", "ignore", "con-name", "bt-pan"], capture_output=True, text=True)
+                if nmcli_res.returncode != 0:
+                    sio.emit("pi-log", {"level": "error", "message": f"nmcli add failed: {nmcli_res.stderr}"})
             sio.emit("status-update", {"type": "success", "message": "Bluetooth Hotspot Enabled! Connect phone via Bluetooth, then open http://10.0.0.1:3000"})
+            sio.emit("pi-log", {"level": "info", "message": "nmcli PAN setup complete."})
         except Exception as e1:
-            print("nmcli failed, trying bt-network...", e1)
+            sio.emit("pi-log", {"level": "warning", "message": f"nmcli failed, trying bt-network: {str(e1)}"})
             # Fallback to bt-network (older OS)
             subprocess.Popen(["sudo", "bt-network", "-s", "nap", "pan0"])
             # We also need to assign an IP to pan0 in this case, but it's complex without dnsmasq.
             # We'll just run it and hope they have a bridge or dhcp setup.
             time.sleep(2)
-            subprocess.run(["sudo", "ifconfig", "pan0", "10.0.0.1", "up"], check=False)
+            subprocess.run(["sudo", "ifconfig", "pan0", "10.0.0.1", "up"], capture_output=True)
             sio.emit("status-update", {"type": "success", "message": "Bluetooth Hotspot (bt-network) Started! Connect phone, then open http://10.0.0.1:3000"})
+            sio.emit("pi-log", {"level": "info", "message": "bt-network PAN setup complete."})
             
         sio.emit("system-status", get_system_status())
     except Exception as e:
+        sio.emit("pi-log", {"level": "error", "message": f"Failed to enable BT PAN: {str(e)}"})
         sio.emit("status-update", {"type": "error", "message": f"Failed to enable BT PAN: {str(e)}"})
 
 @sio.on('toggle-bt-config')

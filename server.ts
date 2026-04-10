@@ -13,8 +13,9 @@ const DATA_FILE = path.join(__dirname, "data.json");
 
 // Default data structure
 const defaultSettings = {
-  brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll',
+  brightness: 100, color: '#ffffff', speed: 50, mode: 'scroll', effect: 'scroll',
   font: '7x13.bdf', image_url: '', font_y_offset: 0,
+  schedule: { enabled: false, day_brightness: 100, night_brightness: 20, night_start: '22:00', night_end: '07:00' },
   hardware: { rows: 32, cols: 64, chain_length: 2, parallel: 1, brightness: 90, hardware_mapping: "adafruit-hat-pwm", scan_mode: 0, pwm_bits: 9, pwm_dither_bits: 1, pwm_lsb_nanoseconds: 130, disable_hardware_pulsing: false, inverse_colors: false, show_refresh_rate: false, limit_refresh_rate_hz: 100 },
   runtime: { gpio_slowdown: 4 },
   plugins: {
@@ -83,6 +84,17 @@ function saveData() {
   saveTimeout = setTimeout(() => {
     fs.writeFileSync(DATA_FILE, JSON.stringify(appData, null, 2));
   }, 500);
+}
+
+const systemLogs: {timestamp: string, level: string, message: string, source: string}[] = [];
+const MAX_LOGS = 100;
+
+function addLog(level: string, message: string, source: string = 'server') {
+  const log = { timestamp: new Date().toISOString(), level, message, source };
+  systemLogs.unshift(log);
+  if (systemLogs.length > MAX_LOGS) systemLogs.pop();
+  console.log(`[${source}] ${level.toUpperCase()}: ${message}`);
+  // We will emit this via socket later when we have the io instance
 }
 
 let rotationActive = true;
@@ -430,7 +442,29 @@ async function startServer() {
     socket.on("health-update", (health) => {
       io.emit("health-update", health);
     });
+
+    // Logging
+    socket.on("pi-log", (log) => {
+      addLog(log.level, log.message, 'pi-client');
+      io.emit("new-log", systemLogs[0]);
+    });
+    
+    socket.on("get-logs", () => {
+      socket.emit("logs-list", systemLogs);
+    });
   });
+
+  // Modify addLog to emit if io is ready
+  const originalAddLog = addLog;
+  (global as any).addLog = function(level: string, message: string, source: string = 'server') {
+    const log = { timestamp: new Date().toISOString(), level, message, source };
+    systemLogs.unshift(log);
+    if (systemLogs.length > MAX_LOGS) systemLogs.pop();
+    console.log(`[${source}] ${level.toUpperCase()}: ${message}`);
+    if (io) {
+      io.emit("new-log", log);
+    }
+  };
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });

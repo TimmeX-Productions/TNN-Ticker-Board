@@ -57,6 +57,25 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
         displayText = "Waiting for messages...";
       }
 
+      let currentX = 10;
+      if (settings.effect === 'static' || settings.mode === 'static') {
+        currentX = 10;
+      } else if (settings.effect === 'bounce') {
+        currentX = pos;
+      } else if (settings.effect === 'flash') {
+        currentX = 10;
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+          ctx.globalAlpha = 0;
+        }
+      } else if (settings.effect === 'typewriter') {
+        currentX = 10;
+        const revealSpeed = (settings.speed || 50) / 100 * 5;
+        const charsToShow = Math.floor((Date.now() / 1000 % (displayText.length / revealSpeed + 2)) * revealSpeed);
+        displayText = displayText.substring(0, charsToShow);
+      } else {
+        currentX = pos;
+      }
+
       // Parse colors
       const parts = displayText.split(/(\{.*?\})/g);
       
@@ -70,7 +89,6 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
         '{d}': defaultColor
       };
 
-      let currentX = settings.mode === 'static' ? 10 : pos;
       let currentColor = defaultColor;
 
       parts.forEach(part => {
@@ -93,11 +111,16 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
         }
       });
 
-      if (settings.mode !== 'static') {
+      if (settings.effect !== 'static' && settings.mode !== 'static' && settings.effect !== 'flash' && settings.effect !== 'typewriter') {
         const speed = settings.speed || 50;
-        pos -= (speed / 20);
+        if (settings.effect === 'bounce') {
+           // Simple bounce simulation for preview
+           pos -= (speed / 20) * (Math.sin(Date.now() / 1000) > 0 ? 1 : -1);
+        } else {
+           pos -= (speed / 20);
+        }
         
-        if (currentX < 0) {
+        if (currentX < 0 && settings.effect !== 'bounce') {
           pos = canvas.width;
         }
       }

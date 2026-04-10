@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { toast, Toaster } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Activity, Wifi, Bluetooth, Power, Settings2, Rss, MonitorPlay, Save, Trash2, Send, Image as ImageIcon, Type, Clock, Cloud, Trophy, TrendingUp, Gamepad2, LayoutDashboard, Blocks, Bitcoin } from 'lucide-react';
+import { Activity, Wifi, Bluetooth, Power, Settings2, Rss, MonitorPlay, Save, Trash2, Send, Image as ImageIcon, Type, Clock, Cloud, Trophy, TrendingUp, Gamepad2, LayoutDashboard, Blocks, Bitcoin, Terminal } from 'lucide-react';
 import DisplaySettings from '@/components/DisplaySettings';
 import MatrixPreview from '@/components/MatrixPreview';
 
@@ -55,9 +55,13 @@ export default function App() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [btConfigEnabled, setBtConfigEnabled] = useState(false);
   const [rotationActive, setRotationActive] = useState(false);
+  const [logs, setLogs] = useState<{timestamp: string, level: string, message: string, source: string}[]>([]);
 
   useEffect(() => {
-    socket.on('connect', () => setStatus('Connected'));
+    socket.on('connect', () => {
+      setStatus('Connected');
+      socket.emit('get-logs');
+    });
     socket.on('disconnect', () => setStatus('Disconnected'));
     socket.on('news-update', (data) => setNews(data));
     socket.on('feed-list', (data) => setFeeds(data));
@@ -68,6 +72,8 @@ export default function App() {
     socket.on('bluetooth-scan-results', (data) => setBluetoothDevices(data));
     socket.on('update-settings', (data) => setSettings(data));
     socket.on('rotation-status', (data) => setRotationActive(data));
+    socket.on('logs-list', (data) => setLogs(data));
+    socket.on('new-log', (log) => setLogs(prev => [log, ...prev].slice(0, 100)));
     socket.on('connection-status', (data) => {
         if (data.type === 'wifi') {
             setWifiStatus(data.status);
@@ -89,6 +95,7 @@ export default function App() {
       socket.off('preset-list'); socket.off('health-update');
       socket.off('wifi-scan-results'); socket.off('bluetooth-scan-results');
       socket.off('update-settings'); socket.off('connection-status'); socket.off('status-update');
+      socket.off('logs-list'); socket.off('new-log');
     };
   }, []);
 
@@ -132,6 +139,7 @@ export default function App() {
     { id: 'modules', label: 'Modules', icon: <Blocks className="w-5 h-5" /> },
     { id: 'display', label: 'Display Settings', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'system', label: 'System', icon: <Settings2 className="w-5 h-5" /> },
+    { id: 'logs', label: 'System Logs', icon: <Terminal className="w-5 h-5" /> },
   ];
 
   return (
@@ -239,17 +247,7 @@ export default function App() {
                     <Separator className="bg-zinc-800" />
 
                     {/* Advanced Controls */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <Label className="text-zinc-300 flex items-center gap-2"><ImageIcon className="w-4 h-4"/> Image URL</Label>
-                        <Input 
-                          value={settings.image_url || ''} 
-                          onChange={(e) => sendSettings({...settings, image_url: e.target.value})} 
-                          placeholder="https://example.com/image.png" 
-                          className="bg-zinc-900 border-zinc-800 text-zinc-100"
-                        />
-                        <p className="text-xs text-zinc-500">Overrides text if provided. Best with small images.</p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="space-y-4">
                         <Label className="text-zinc-300 flex items-center gap-2"><Type className="w-4 h-4"/> Font & Size</Label>
                         <Select value={settings.font || '7x13.bdf'} onValueChange={(v) => sendSettings({...settings, font: v})}>
@@ -266,7 +264,32 @@ export default function App() {
                             <SelectItem value="10x20.bdf">10x20 (Extra Large)</SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-zinc-500">BDF fonts have fixed sizes. Select a larger font to increase size.</p>
+                      </div>
+                      <div className="space-y-4">
+                        <Label className="text-zinc-300 flex items-center gap-2"><MonitorPlay className="w-4 h-4"/> Transition Effect</Label>
+                        <Select value={settings.effect || 'scroll'} onValueChange={(v) => sendSettings({...settings, effect: v})}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="scroll">Smooth Scroll</SelectItem>
+                            <SelectItem value="static">Static (No Movement)</SelectItem>
+                            <SelectItem value="bounce">Bounce</SelectItem>
+                            <SelectItem value="flash">Flash</SelectItem>
+                            <SelectItem value="typewriter">Typewriter</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-4">
+                        <Label className="text-zinc-300 flex items-center gap-2"><Clock className="w-4 h-4"/> Night Mode Schedule</Label>
+                        <div className="flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-md p-2">
+                          <Switch 
+                            id="schedule-toggle"
+                            checked={settings.schedule?.enabled || false}
+                            onCheckedChange={(c) => sendSettings({...settings, schedule: {...(settings.schedule || {}), enabled: c}})}
+                          />
+                          <Label htmlFor="schedule-toggle" className="text-sm text-zinc-300 cursor-pointer">Auto-Dim at Night</Label>
+                        </div>
                       </div>
                     </div>
 
@@ -276,23 +299,27 @@ export default function App() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <Label className="text-zinc-300">Brightness</Label>
-                          <span className="text-zinc-500 text-sm">{settings.brightness ?? 100}%</span>
+                          <Label className="text-zinc-300">Brightness (Day)</Label>
+                          <span className="text-zinc-500 text-sm">{settings.schedule?.enabled ? settings.schedule?.day_brightness : settings.brightness ?? 100}%</span>
                         </div>
                         <Slider 
-                          value={settings.brightness ?? 100} 
+                          value={settings.schedule?.enabled ? (settings.schedule?.day_brightness ?? 100) : (settings.brightness ?? 100)} 
                           min={0} max={100} 
                           onValueChange={(v) => {
                             const val = Array.isArray(v) ? v[0] : v;
-                            setSettings({...settings, brightness: val});
-                            sendSettings({...settings, brightness: val});
+                            if (settings.schedule?.enabled) {
+                              sendSettings({...settings, schedule: {...settings.schedule, day_brightness: val}});
+                            } else {
+                              setSettings({...settings, brightness: val});
+                              sendSettings({...settings, brightness: val});
+                            }
                           }}
                           className="[&_[role=slider]]:bg-orange-500"
                         />
                       </div>
                       <div className="space-y-4">
                         <div className="flex justify-between">
-                          <Label className="text-zinc-300">Scroll Speed</Label>
+                          <Label className="text-zinc-300">Animation Speed</Label>
                           <span className="text-zinc-500 text-sm">{settings.speed ?? 50}</span>
                         </div>
                         <Slider 
@@ -322,27 +349,17 @@ export default function App() {
                           className="[&_[role=slider]]:bg-orange-500"
                         />
                       </div>
-                      <div className="space-y-4 md:col-span-3">
-                        <Label className="text-zinc-300">Color & Effect</Label>
-                        <div className="flex gap-3">
-                          <Input 
-                            type="color" 
-                            value={settings.color} 
-                            onChange={(e) => sendSettings({...settings, color: e.target.value})} 
-                            className="h-10 w-20 p-1 bg-zinc-900 border-zinc-800 cursor-pointer" 
-                          />
-                          <Select value={settings.mode} onValueChange={(v) => sendSettings({...settings, mode: v})}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100 w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="scroll">Scroll Left</SelectItem>
-                              <SelectItem value="static">Static Center</SelectItem>
-                              <SelectItem value="bounce">Bounce</SelectItem>
-                              <SelectItem value="flash">Flash</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                    </div>
+
+                    <div className="space-y-4 md:col-span-3">
+                      <Label className="text-zinc-300">Color</Label>
+                      <div className="flex gap-3">
+                        <Input 
+                          type="color" 
+                          value={settings.color} 
+                          onChange={(e) => sendSettings({...settings, color: e.target.value})} 
+                          className="h-10 w-20 p-1 bg-zinc-900 border-zinc-800 cursor-pointer" 
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -768,6 +785,44 @@ export default function App() {
                     </Button>
                   </div>
 
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="space-y-8">
+              <Card className="bg-zinc-950 border-zinc-800">
+                <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 py-4 flex flex-row items-center justify-between">
+                  <CardTitle className="text-zinc-100 flex items-center gap-2 text-lg">
+                    <Terminal className="w-5 h-5 text-orange-500" />
+                    System Logs
+                  </CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => setLogs([])} className="h-8 border-zinc-700 hover:bg-zinc-800">
+                    Clear Logs
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="h-[600px] overflow-y-auto p-4 font-mono text-xs space-y-1 bg-black">
+                    {logs.length === 0 ? (
+                      <div className="text-zinc-600 text-center py-10">No logs available</div>
+                    ) : (
+                      logs.map((log, i) => (
+                        <div key={i} className={`flex gap-3 py-1 border-b border-zinc-900/50 ${
+                          log.level === 'error' ? 'text-red-400' : 
+                          log.level === 'warning' ? 'text-yellow-400' : 
+                          log.level === 'success' ? 'text-emerald-400' : 
+                          'text-zinc-400'
+                        }`}>
+                          <span className="text-zinc-600 shrink-0 w-24">
+                            {new Date(log.timestamp).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}
+                          </span>
+                          <span className="shrink-0 w-20 uppercase opacity-70">[{log.source}]</span>
+                          <span className="break-all">{log.message}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>
