@@ -397,9 +397,17 @@ async function startServer() {
       io.emit("request-connect-wifi", data);
       io.emit("connection-status", { type: 'wifi', status: 'connecting', message: `Connecting to ${data.ssid}...` });
     });
+    socket.on("scan-wifi", () => {
+      io.emit("request-scan-wifi");
+      socket.emit("status-update", { type: "info", message: "Scanning for Wi-Fi networks..." });
+    });
     socket.on("pair-bluetooth", (data) => {
       io.emit("request-pair-bluetooth", data);
-      io.emit("connection-status", { type: 'bluetooth', status: 'pairing', message: `Pairing with ${data.device}...` });
+      io.emit("connection-status", { type: 'bluetooth', status: 'pairing', message: `Pairing with ${data.name || data.device}...` });
+    });
+    socket.on("scan-bluetooth", () => {
+      io.emit("request-scan-bluetooth");
+      socket.emit("status-update", { type: "info", message: "Scanning for Bluetooth devices..." });
     });
     socket.on("enable-bt-pan", () => {
       io.emit("request-enable-bt-pan");

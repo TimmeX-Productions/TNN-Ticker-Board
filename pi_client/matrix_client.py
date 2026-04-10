@@ -421,40 +421,52 @@ def on_scan_wifi():
 
 @sio.on('request-scan-bluetooth')
 def on_scan_bluetooth():
-    devices = []
+    devices = [] # List of {"name": name, "mac": mac}
     try:
+        sio.emit("pi-log", {"level": "info", "message": "Starting Bluetooth scan..."})
         # Try using timeout with bluetoothctl (works on newer bluez)
         try:
-            subprocess.run(["sudo", "bluetoothctl", "--timeout", "5", "scan", "on"], capture_output=True)
+            subprocess.run(["sudo", "bluetoothctl", "--timeout", "10", "scan", "on"], capture_output=True)
         except:
             # Fallback to manual sleep
             p = subprocess.Popen(["sudo", "bluetoothctl", "scan", "on"])
-            time.sleep(5)
-            subprocess.Popen(["sudo", "bluetoothctl", "scan", "off"]).wait()
+            time.sleep(10)
+            subprocess.run(["sudo", "bluetoothctl", "scan", "off"], capture_output=True)
             
         results = subprocess.check_output(["sudo", "bluetoothctl", "devices"]).decode().split('\n')
         for r in results:
             if r.startswith("Device"):
                 parts = r.split(' ', 2)
                 if len(parts) >= 3:
+                    mac = parts[1].strip()
                     name = parts[2].strip()
-                    if name and name != parts[1]: # Avoid just showing MAC addresses if possible
-                        devices.append(name)
-        devices = list(set(devices))
+                    if name and name != mac:
+                        devices.append({"name": name, "mac": mac})
+        
+        # Deduplicate by MAC
+        seen_macs = set()
+        unique_devices = []
+        for d in devices:
+            if d['mac'] not in seen_macs:
+                unique_devices.append(d)
+                seen_macs.add(d['mac'])
+        devices = unique_devices
+        
+        sio.emit("pi-log", {"level": "info", "message": f"Scan complete. Found {len(devices)} devices."})
     except Exception as e:
-        print("bluetoothctl failed, trying hcitool...", e)
+        sio.emit("pi-log", {"level": "error", "message": f"Bluetooth scan failed: {str(e)}"})
+        # Fallback to hcitool
         try:
             scan_out = subprocess.check_output(["sudo", "hcitool", "scan"]).decode().split('\n')
             for line in scan_out:
                 parts = line.split('\t')
                 if len(parts) >= 3:
+                    mac = parts[1].strip()
                     name = parts[2].strip()
                     if name:
-                        devices.append(name)
-            devices = list(set(devices))
+                        devices.append({"name": name, "mac": mac})
         except Exception as e2:
-            print("hcitool failed:", e2)
-            sio.emit("client-error", f"BT Scan Error: {e2}")
+            sio.emit("pi-log", {"level": "error", "message": f"hcitool scan also failed: {str(e2)}"})
             
     sio.emit("bluetooth-scan-results", devices)
 
@@ -470,12 +482,13 @@ def on_connect_wifi(data):
 @sio.on('request-pair-bluetooth')
 def on_pair_bluetooth(data):
     try:
-        device_name = data['device']
-        sio.emit("pi-log", {"level": "info", "message": f"Searching for MAC address of: {device_name}"})
+        # Now expecting data to have 'mac' and 'name'
+        mac = data.get('mac')
+        device_name = data.get('name', 'Unknown Device')
         
-        # Try to find MAC in known devices
-        mac = None
-        try:
+        if not mac:
+            # Fallback to name search if MAC not provided
+            sio.emit("pi-log", {"level": "info", "message": f"MAC not provided, searching for: {device_name}"})
             results = subprocess.check_output(["sudo", "bluetoothctl", "devices"]).decode().split('\n')
             for r in results:
                 if device_name in r:
@@ -483,53 +496,28 @@ def on_pair_bluetooth(data):
                     if len(parts) > 1:
                         mac = parts[1]
                     break
-        except Exception as e:
-            sio.emit("pi-log", {"level": "warning", "message": f"Error listing devices: {str(e)}"})
-        
-        # If not found in general devices, check paired devices specifically
-        if not mac:
-            try:
-                paired = subprocess.check_output(["sudo", "bluetoothctl", "paired-devices"]).decode().split('\n')
-                for r in paired:
-                    if device_name in r:
-                        parts = r.split(' ')
-                        if len(parts) > 1:
-                            mac = parts[1]
-                        break
-            except Exception as e:
-                # Some versions of bluetoothctl might not support 'paired-devices' directly as a CLI arg
-                sio.emit("pi-log", {"level": "debug", "message": f"paired-devices command failed (expected on some systems): {str(e)}"})
 
         if mac:
-            sio.emit("pi-log", {"level": "info", "message": f"Found MAC: {mac}. Refreshing device presence..."})
+            sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with {device_name} ({mac})..."})
             
-            # Briefly scan to "see" the device and avoid "not available" error
+            # Briefly scan to "see" the device
             subprocess.run(["sudo", "bluetoothctl", "scan", "on"], capture_output=True, timeout=3)
             
-            # Remove device first in case it's in a bad state
+            # Remove device first
             subprocess.run(["sudo", "bluetoothctl", "remove", mac], capture_output=True)
-            
-            sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with {mac}..."})
             
             # Start pairing
             pair_res = subprocess.run(["sudo", "bluetoothctl", "pair", mac], capture_output=True, text=True)
             if pair_res.returncode != 0:
                 sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
-                # Check if it's the "not available" error specifically
-                if "not available" in pair_res.stderr.lower() or "not available" in pair_res.stdout.lower():
-                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not available. Please ensure your phone is in the Bluetooth settings screen and try again."})
-                else:
-                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": f"Pair failed: {pair_res.stderr[:50]}..."})
+                sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure device is discoverable."})
                 return
                 
-            trust_res = subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True, text=True)
-            if trust_res.returncode != 0:
-                sio.emit("pi-log", {"level": "error", "message": f"Trust failed: {trust_res.stderr} {trust_res.stdout}"})
-                
+            subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True)
             sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {device_name}"})
         else:
-            sio.emit("pi-log", {"level": "error", "message": f"Device '{device_name}' not found. Please run a Bluetooth Scan first."})
-            sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found. Please scan again."})
+            sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
+            sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found."})
     except Exception as e:
         sio.emit("pi-log", {"level": "error", "message": f"Bluetooth pair exception: {str(e)}"})
         sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": f"Failed: {str(e)}"})

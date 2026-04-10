@@ -46,9 +46,9 @@ export default function App() {
   const [presetName, setPresetName] = useState('');
   const [health, setHealth] = useState({ cpu: 0, temp: 0 });
   const [wifiNetworks, setWifiNetworks] = useState<string[]>([]);
-  const [bluetoothDevices, setBluetoothDevices] = useState<string[]>([]);
+  const [bluetoothDevices, setBluetoothDevices] = useState<{name: string, mac: string}[]>([]);
   const [selectedWifi, setSelectedWifi] = useState('');
-  const [selectedBluetooth, setSelectedBluetooth] = useState('');
+  const [selectedBluetooth, setSelectedBluetooth] = useState(''); // This will store the MAC address
   const [wifiPassword, setWifiPassword] = useState('');
   const [wifiStatus, setWifiStatus] = useState<'idle' | 'connecting' | 'success' | 'error'>('idle');
   const [btStatus, setBtStatus] = useState<'idle' | 'pairing' | 'success' | 'error'>('idle');
@@ -757,7 +757,7 @@ export default function App() {
                         </SelectTrigger>
                         <SelectContent>
                           {bluetoothDevices.length > 0 ? (
-                            bluetoothDevices.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)
+                            bluetoothDevices.map(d => <SelectItem key={d.mac} value={d.mac}>{d.name}</SelectItem>)
                           ) : (
                             <SelectItem value="none" disabled>No devices found</SelectItem>
                           )}
@@ -765,7 +765,15 @@ export default function App() {
                       </Select>
                       <Button variant="outline" onClick={() => socket.emit('scan-bluetooth')} className="border-zinc-800 hover:bg-zinc-800">Scan</Button>
                     </div>
-                    <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white" onClick={() => { setBtStatus('pairing'); socket.emit('pair-bluetooth', { device: selectedBluetooth }); }}>Pair Device</Button>
+                    <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white" onClick={() => { 
+                      const device = bluetoothDevices.find(d => d.mac === selectedBluetooth);
+                      if (device) {
+                        setBtStatus('pairing'); 
+                        socket.emit('pair-bluetooth', { mac: device.mac, name: device.name }); 
+                      } else {
+                        toast.error("Please select a device first");
+                      }
+                    }}>Pair Device</Button>
                     {btStatus !== 'idle' && (
                         <div className={`text-xs p-2 rounded border ${btStatus === 'success' ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' : btStatus === 'error' ? 'bg-red-950/30 border-red-900 text-red-400' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}>
                             {btStatus === 'pairing' ? 'Pairing...' : connectionMessage}
