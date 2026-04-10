@@ -287,7 +287,7 @@ def draw_loop():
                 display_text = "Waiting for messages..."
 
             if display_text and font_loaded:
-                effect = settings.get("mode", "scroll")
+                effect = settings.get("effect", settings.get("mode", "scroll"))
                 text_width = get_colored_text_width(font, display_text)
                 
                 y_offset = int(settings.get("font_y_offset", 0))
@@ -312,9 +312,31 @@ def draw_loop():
                 elif effect == "typewriter":
                     # Reveal characters based on time
                     reveal_speed = settings.get("speed", 50) / 100.0 * 5.0 # chars per second
-                    chars_to_show = int((time.time() % (len(display_text) / reveal_speed + 2)) * reveal_speed)
-                    if chars_to_show > len(display_text): chars_to_show = len(display_text)
-                    partial_text = display_text[:chars_to_show]
+                    
+                    # Calculate visible length
+                    visible_length = len(re.sub(r'\{.*?\}', '', display_text))
+                    chars_to_show = int((time.time() % (visible_length / reveal_speed + 2)) * reveal_speed)
+                    if chars_to_show > visible_length: chars_to_show = visible_length
+                    
+                    # Slice while preserving tags
+                    partial_text = ""
+                    visible_count = 0
+                    parts = re.split(r'(\{.*?\})', display_text)
+                    for part in parts:
+                        if part.startswith('{') and part.endswith('}'):
+                            partial_text += part
+                        else:
+                            remaining = chars_to_show - visible_count
+                            if remaining > 0:
+                                if len(part) <= remaining:
+                                    partial_text += part
+                                    visible_count += len(part)
+                                else:
+                                    partial_text += part[:remaining]
+                                    visible_count += remaining
+                        if visible_count >= chars_to_show and not part.startswith('{'):
+                            break
+                            
                     partial_width = get_colored_text_width(font, partial_text)
                     draw_colored_text(canvas, font, (canvas.width - partial_width) // 2, y_pos, text_color, partial_text)
                 else: # scroll

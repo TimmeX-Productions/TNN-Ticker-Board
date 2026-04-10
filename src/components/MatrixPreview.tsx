@@ -70,8 +70,33 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
       } else if (settings.effect === 'typewriter') {
         currentX = 10;
         const revealSpeed = (settings.speed || 50) / 100 * 5;
-        const charsToShow = Math.floor((Date.now() / 1000 % (displayText.length / revealSpeed + 2)) * revealSpeed);
-        displayText = displayText.substring(0, charsToShow);
+        
+        // Calculate visible length
+        const visibleLength = displayText.replace(/\{.*?\}/g, '').length;
+        const charsToShow = Math.floor((Date.now() / 1000 % (visibleLength / revealSpeed + 2)) * revealSpeed);
+        
+        // Slice while preserving tags
+        let result = "";
+        let visibleCount = 0;
+        const parts = displayText.split(/(\{.*?\})/g);
+        for (const part of parts) {
+          if (part.startsWith('{') && part.endsWith('}')) {
+            result += part;
+          } else {
+            const remaining = charsToShow - visibleCount;
+            if (remaining > 0) {
+              if (part.length <= remaining) {
+                result += part;
+                visibleCount += part.length;
+              } else {
+                result += part.substring(0, remaining);
+                visibleCount += remaining;
+              }
+            }
+          }
+          if (visibleCount >= charsToShow && !part.startsWith('{')) break;
+        }
+        displayText = result;
       } else {
         currentX = pos;
       }
@@ -105,7 +130,7 @@ export default function MatrixPreview({ settings, message, news }: MatrixPreview
           // Add a slight glow effect
           ctx.shadowColor = currentColor;
           ctx.shadowBlur = 4;
-          ctx.fillText(part, currentX, canvas.height / 2);
+          ctx.fillText(part, Math.round(currentX), Math.round(canvas.height / 2));
           ctx.shadowBlur = 0;
           currentX += ctx.measureText(part).width;
         }

@@ -320,6 +320,7 @@ async function startServer() {
           }
 
           if (message) {
+              message = message.replace(/\n|\r/g, ' ').trim();
               currentMessage = message;
               io.emit("display-message", message);
           }
@@ -435,6 +436,7 @@ async function startServer() {
     socket.on("send-message", (message) => {
       rotationActive = false;
       if (rotationTimer) clearTimeout(rotationTimer);
+      message = message.replace(/\n|\r/g, ' ').trim();
       currentMessage = message;
       io.emit("rotation-status", false);
       io.emit("display-message", message);
