@@ -500,36 +500,82 @@ def on_pair_bluetooth(data):
         if mac:
             sio.emit("pi-log", {"level": "info", "message": f"Attempting to pair with {device_name} ({mac})..."})
             
-            # Ensure agent is running. DisplayYesNo is often more reliable for modern phones
-            # as it triggers the "Confirm PIN" dialog on both ends.
-            subprocess.run(["sudo", "bluetoothctl", "agent", "DisplayYesNo"], capture_output=True)
+            # Use KeyboardDisplay agent to ensure passkeys are shown
+            subprocess.run(["sudo", "bluetoothctl", "agent", "KeyboardDisplay"], capture_output=True)
             subprocess.run(["sudo", "bluetoothctl", "default-agent"], capture_output=True)
             
             # IMPORTANT: Disconnect and Remove device first to clear stale encryption keys
             sio.emit("pi-log", {"level": "info", "message": "Clearing stale pairing data..."})
             subprocess.run(["sudo", "bluetoothctl", "disconnect", mac], capture_output=True)
             subprocess.run(["sudo", "bluetoothctl", "remove", mac], capture_output=True)
-            time.sleep(2) # Give the stack a moment to settle
+            time.sleep(2)
             
-            # Briefly scan to "see" the device
-            subprocess.run(["sudo", "bluetoothctl", "scan", "on"], capture_output=True, timeout=5)
+            # Targeted scan to ensure device is "seen"
+            sio.emit("pi-log", {"level": "info", "message": f"Scanning to find {device_name}..."})
+            subprocess.run(["sudo", "bluetoothctl", "scan", "on"], capture_output=True, timeout=8)
             
             # Trust the device
             subprocess.run(["sudo", "bluetoothctl", "trust", mac], capture_output=True)
             
-            sio.emit("pi-log", {"level": "info", "message": "Sending pair request. PLEASE CHECK YOUR PHONE FOR A PAIRING PROMPT AND TAP 'PAIR' OR 'OK'."})
+            sio.emit("pi-log", {"level": "info", "message": "Starting pairing process. WATCH FOR PIN BELOW..."})
             
-            # Start pairing
-            pair_res = subprocess.run(["sudo", "bluetoothctl", "pair", mac], capture_output=True, text=True)
-            if pair_res.returncode != 0:
-                sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {pair_res.stderr} {pair_res.stdout}"})
-                if "authenticationfailed" in pair_res.stderr.lower() or "authenticationfailed" in pair_res.stdout.lower():
-                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Authentication Failed. CRITICAL: You MUST 'Forget' LEDPI on your phone's Bluetooth settings before trying again."})
-                else:
-                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure device is discoverable."})
-                return
+            # Start pairing with Popen to capture real-time output (like PINs)
+            process = subprocess.Popen(
+                ["sudo", "bluetoothctl", "pair", mac],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Read output line by line
+            success = False
+            error_msg = "Pairing timed out or failed"
+            
+            # Set a timeout for the loop
+            start_time = time.time()
+            while time.time() - start_time < 30: # 30 second pairing window
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
                 
-            sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {device_name}"})
+                if line:
+                    line = line.strip()
+                    # Log everything from bluetoothctl during pairing for debugging
+                    sio.emit("pi-log", {"level": "info", "message": f"BT: {line}"})
+                    
+                    # Detect Passkey/PIN
+                    if "Passkey" in line or "passkey" in line or "PIN" in line:
+                        sio.emit("status-update", {"type": "info", "message": f"PAIRING PIN: {line}"})
+                    
+                    # Handle confirmation prompt
+                    if "Confirm passkey" in line or "(yes/no)" in line:
+                        sio.emit("pi-log", {"level": "info", "message": "Auto-confirming passkey on Pi side..."})
+                        process.stdin.write("yes\n")
+                        process.stdin.flush()
+                    
+                    if "Pairing successful" in line:
+                        success = True
+                        break
+                    
+                    if "Failed to pair" in line or "AuthenticationFailed" in line:
+                        error_msg = line
+                        break
+            
+            if success:
+                sio.emit("connection-status", {"type": "bluetooth", "status": "success", "message": f"Paired with {device_name}"})
+            else:
+                process.terminate()
+                sio.emit("pi-log", {"level": "error", "message": f"Pair failed: {error_msg}"})
+                if "AuthenticationFailed" in error_msg:
+                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Authentication Failed. Please 'Forget' LEDPI on your phone and try again."})
+                else:
+                    sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Pair failed. Ensure your phone is in the Bluetooth settings screen."})
+        else:
+            sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
+            sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found."})
         else:
             sio.emit("pi-log", {"level": "error", "message": "Device MAC not found. Please scan again."})
             sio.emit("connection-status", {"type": "bluetooth", "status": "error", "message": "Device not found."})
