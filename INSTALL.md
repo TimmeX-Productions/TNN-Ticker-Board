@@ -173,8 +173,8 @@ Description=TNN Ticker Board Web Dashboard
 After=network-online.target
 
 [Service]
-User=ledpi
-WorkingDirectory=/home/ledpi/TNN-Ticker-Board
+User=<YOUR_USERNAME>
+WorkingDirectory=/home/<YOUR_USERNAME>/TNN-Ticker-Board
 # Use the absolute path to npm
 ExecStart=/usr/bin/npm start
 Restart=always

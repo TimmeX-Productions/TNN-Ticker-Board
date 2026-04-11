@@ -9,7 +9,14 @@ fi
 APP_DIR=$(realpath $(dirname $0))
 PI_CLIENT_DIR="$APP_DIR/pi_client"
 
-echo "Setting up TNN Ticker Board Services..."
+# Detect the real user (the one who ran sudo)
+REAL_USER=${SUDO_USER:-$USER}
+if [ "$REAL_USER" == "root" ]; then
+  # If we are somehow root without sudo, fallback to ledpi or first non-root user
+  REAL_USER=$(logname 2>/dev/null || echo "ledpi")
+fi
+
+echo "Setting up TNN Ticker Board Services for user: $REAL_USER..."
 
 # 1. Setup Node.js Server Service
 NODE_SERVICE_FILE="/etc/systemd/system/tnn-server.service"
@@ -32,7 +39,7 @@ WorkingDirectory=$APP_DIR
 StandardOutput=inherit
 StandardError=inherit
 Restart=always
-User=pi
+User=$REAL_USER
 Environment=NODE_ENV=production
 
 [Install]
